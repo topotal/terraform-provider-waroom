@@ -2,15 +2,19 @@ package provider
 
 import (
 	"context"
-	"net/http"
+	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	"github.com/hashicorp/terraform-plugin-framework/function"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+
+	"github.com/topotal/terraform-provider-waroom/internal/utils"
+	"github.com/topotal/waroom-client-go/waroom"
 )
 
 // Ensure WaroomProvider satisfies various provider interfaces.
@@ -29,6 +33,7 @@ type WaroomProvider struct {
 // WaroomProviderModel describes the provider data model.
 type WaroomProviderModel struct {
 	Endpoint types.String `tfsdk:"endpoint"`
+	ApiKey   types.String `tfsdk:"api_key"`
 }
 
 func (p *WaroomProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -40,8 +45,13 @@ func (p *WaroomProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"endpoint": schema.StringAttribute{
-				MarkdownDescription: "waroom API endpoint",
+				MarkdownDescription: "waroom API endpoint. This can also be set via the WAROOM_API_ENDPOINT environment variable.",
 				Optional:            true,
+			},
+			"api_key": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				Description: "(Required unless validate is false) Waroom API key. This can also be set via the WAROOM_API_KEY environment variable.",
 			},
 		},
 	}
@@ -57,10 +67,53 @@ func (p *WaroomProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	}
 
 	// Configuration values are now available.
-	// if data.Endpoint.IsNull() { /* ... */ }
+
+	// Default values to environment variables, but override
+	// with Terraform configuration value if set.
+
+	endpoint := os.Getenv(utils.WaroomAPIEndPointEnvName)
+	apiKey := os.Getenv(utils.WaroomAPIKeyEnvName)
+
+	if !data.Endpoint.IsNull() {
+		endpoint = data.Endpoint.ValueString()
+	}
+
+	if !data.ApiKey.IsNull() {
+		apiKey = data.ApiKey.ValueString()
+	}
+
+	if endpoint == "" {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("endpoint)"),
+			"Missing waroom API endpoint",
+			"The provider cannot create the Waroom API client as there is an unknown configuration value for the Waroom API host. "+
+				"Either target apply the source of the value first, set the value statically in the configuration, or use the WAROOM_API_ENDPOINT environment variable.",
+		)
+	}
+
+	if apiKey == "" {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("api_key"),
+			"Missing Waroom API key",
+			"The provider cannot create the Waroom API client as there is an unknown configuration value for the Waroom API key. "+
+				"Either target apply the source of the value first, set the value statically in the configuration, or use the WAROOM_API_KEY environment variable.",
+		)
+	}
+
+	// TODO: ここでAPI keyの疎通確認したほうが良いのかも？
 
 	// Example client configuration for data sources and resources
-	client := http.DefaultClient
+	waroomClient, err := waroom.NewClient(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Create Waroom API Client",
+			"An unexpected error occurred when creating the Waroom API client. "+
+				"If the error is not clear, please contact the provider developers.\n\n"+
+				"Waroom Client Error: "+err.Error(),
+		)
+		return
+	}
+	client := waroomClient
 	resp.DataSourceData = client
 	resp.ResourceData = client
 }
@@ -80,6 +133,7 @@ func (p *WaroomProvider) EphemeralResources(ctx context.Context) []func() epheme
 func (p *WaroomProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		NewExampleDataSource,
+		NewServiceSource,
 	}
 }
 
