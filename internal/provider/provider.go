@@ -32,7 +32,7 @@ type WaroomProviderModel struct {
 }
 
 func (p *WaroomProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "scaffolding"
+	resp.TypeName = "waroom"
 	resp.Version = p.version
 }
 
