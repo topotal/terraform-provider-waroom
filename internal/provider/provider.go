@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"net/http"
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -14,7 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/topotal/terraform-provider-waroom/internal/utils"
-	"github.com/topotal/waroom-client-go/waroom"
 )
 
 // Ensure WaroomProvider satisfies various provider interfaces.
@@ -85,7 +85,7 @@ func (p *WaroomProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	if endpoint == "" {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("endpoint)"),
-			"Missing waroom API endpoint",
+			"Missing Waroom API endpoint",
 			"The provider cannot create the Waroom API client as there is an unknown configuration value for the Waroom API host. "+
 				"Either target apply the source of the value first, set the value statically in the configuration, or use the WAROOM_API_ENDPOINT environment variable.",
 		)
@@ -103,44 +103,40 @@ func (p *WaroomProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	// TODO: ここでAPI keyの疎通確認したほうが良いのかも？
 
 	// Example client configuration for data sources and resources
-	waroomClient, err := waroom.NewClient(ctx)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Unable to Create Waroom API Client",
-			"An unexpected error occurred when creating the Waroom API client. "+
-				"If the error is not clear, please contact the provider developers.\n\n"+
-				"Waroom Client Error: "+err.Error(),
-		)
-		return
-	}
-	client := waroomClient
+	// waroomClient, err := waroom.NewClient(ctx)
+	// if err != nil {
+	// 	resp.Diagnostics.AddError(
+	// 		"Unable to Create Waroom API Client",
+	// 		"An unexpected error occurred when creating the Waroom API client. "+
+	// 			"If the error is not clear, please contact the provider developers.\n\n"+
+	// 			"Waroom Client Error: "+err.Error(),
+	// 	)
+	// 	return
+	// }
+
+	// TODO: http clientを返す方法を考える
+	// client := waroomClient
+	client := http.DefaultClient
 	resp.DataSourceData = client
 	resp.ResourceData = client
 }
 
 func (p *WaroomProvider) Resources(ctx context.Context) []func() resource.Resource {
-	return []func() resource.Resource{
-		NewExampleResource,
-	}
+	return []func() resource.Resource{}
 }
 
 func (p *WaroomProvider) EphemeralResources(ctx context.Context) []func() ephemeral.EphemeralResource {
-	return []func() ephemeral.EphemeralResource{
-		NewExampleEphemeralResource,
-	}
+	return []func() ephemeral.EphemeralResource{}
 }
 
 func (p *WaroomProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewExampleDataSource,
-		NewServiceSource,
+		NewServiceLabelSource,
 	}
 }
 
 func (p *WaroomProvider) Functions(ctx context.Context) []func() function.Function {
-	return []func() function.Function{
-		NewExampleFunction,
-	}
+	return []func() function.Function{}
 }
 
 func New(version string) func() provider.Provider {
