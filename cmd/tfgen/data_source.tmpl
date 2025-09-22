@@ -1,0 +1,67 @@
+package {{.Package}}
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+
+	"{{.ClientImport}}"
+)
+
+var (
+	_ datasource.DataSource = &{{.Pascal}}DataSource{}
+	_ datasource.DataSourceWithConfigure = &{{.Pascal}}DataSource{}
+)
+
+// New{{.Pascal}}DataSource is a helper to simplify provider implementation.
+func New{{.Pascal}}DataSource() datasource.DataSource {
+	return &{{.Pascal}}DataSource{}
+}
+
+// {{.Pascal}}DataSource is the data source implementation.
+type {{.Pascal}}DataSource struct {
+	client *waroom.{{.ClientType}}
+}
+
+// {{.Pascal}}SourceModel describes the data source data model.
+type {{.Pascal}}SourceModel struct {
+	// example attribute
+	// UUID        types.String `tfsdk:"uuid"`
+}
+
+// Metadata returns the data source type name.
+func (d *{{.Pascal}}DataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_{{.Snake}}"
+}
+
+// Configure adds the provider configured client to the data source.
+func (d *{{.Pascal}}DataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+
+	client, ok := req.ProviderData.(*waroom.{{.ClientType}})
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Data Source Configure Type",
+			fmt.Sprintf("Expected *{{.ClientType}}, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+		return
+	}
+
+	d.client = client
+}
+
+// Schema defines the schema for the data source.
+func (d *{{.Pascal}}DataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		// TODO: define attributes.
+	}
+}
+
+// Read refreshes Terraform state with the latest data.
+func (d *{{.Pascal}}DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	// TODO: implement
+}
