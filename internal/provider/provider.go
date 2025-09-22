@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"net/http"
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -15,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/topotal/terraform-provider-waroom/internal/utils"
+	"github.com/topotal/waroom-client-go/waroom"
 )
 
 // Ensure WaroomProvider satisfies various provider interfaces.
@@ -101,22 +101,23 @@ func (p *WaroomProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	}
 
 	// TODO: ここでAPI keyの疎通確認したほうが良いのかも？
+	client, err := waroom.NewWaroomClient(ctx,
+		waroom.WithBaseURL(endpoint),
+		waroom.WithUserAgent("waroom-client-go 0.0.1/terraform-provider-waroom "+p.version),
+		// waroom.WithRequestDump(),
+		// waroom.WithResponseDump(),
+	)
 
-	// Example client configuration for data sources and resources
-	// waroomClient, err := waroom.NewClient(ctx)
-	// if err != nil {
-	// 	resp.Diagnostics.AddError(
-	// 		"Unable to Create Waroom API Client",
-	// 		"An unexpected error occurred when creating the Waroom API client. "+
-	// 			"If the error is not clear, please contact the provider developers.\n\n"+
-	// 			"Waroom Client Error: "+err.Error(),
-	// 	)
-	// 	return
-	// }
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Create Waroom API Client",
+			"An unexpected error occurred when creating the Waroom API client. "+
+				"If the error is not clear, please contact the provider developers.\n\n"+
+				"Waroom Client Error: "+err.Error(),
+		)
+		return
+	}
 
-	// TODO: http clientを返す方法を考える
-	// client := waroomClient
-	client := http.DefaultClient
 	resp.DataSourceData = client
 	resp.ResourceData = client
 }
