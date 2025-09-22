@@ -123,7 +123,9 @@ func (p *WaroomProvider) Configure(ctx context.Context, req provider.ConfigureRe
 }
 
 func (p *WaroomProvider) Resources(ctx context.Context) []func() resource.Resource {
-	return []func() resource.Resource{}
+	return []func() resource.Resource{
+		NewServiceLabelResource,
+	}
 }
 
 func (p *WaroomProvider) EphemeralResources(ctx context.Context) []func() ephemeral.EphemeralResource {
