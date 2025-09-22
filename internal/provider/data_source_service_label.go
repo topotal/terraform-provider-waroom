@@ -139,29 +139,16 @@ func (d *ServiceLabelSource) Read(ctx context.Context, req datasource.ReadReques
 	}
 
 	for _, label := range labels {
-
-		tflog.Info(ctx, "Reading service label", map[string]interface{}{
-			"uuid":  label.UUID.String(),
-			"name":  label.Name,
-			"color": label.Color,
-		})
-
 		// API response to model
 		if label.UUID.String() == data.UUID.ValueString() || label.Name == data.Name.ValueString() {
-			tflog.Info(ctx, "!!!!!!!!!!! Found a matching label")
-
 			data.UUID = types.StringValue(label.UUID.String())
 			data.Color = types.StringValue(label.Color.Value)
 			data.CreatedAt = types.StringValue(label.CreatedAt.Value.String())
+			data.Name = types.StringValue(label.Name)
+
 			// data.UpdateAt = types.StringValue(label.UpdatedAt.Value.String())
 		}
 	}
-
-	// Write logs using the tflog package
-	// Documentation: https://terraform.io/plugin/log
-	tflog.Trace(ctx, "read a data source")
-
-	// Set state
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
