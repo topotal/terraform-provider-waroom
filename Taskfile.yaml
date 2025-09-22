@@ -1,0 +1,39 @@
+# Taskfile.yml
+version: '3'
+
+vars:
+  PKG: provider
+  CLIENT_PKG: github.com/topotal/waroom-client-go/waroom
+  CLIENT_TYPE: WaroomClient
+
+tasks:
+  gen:
+    desc: "Generate resource/data_source. Usage: task gen name=service_label [kind=resource]"
+    vars:
+      name: { sh: 'echo ${name:-}' }
+      kind: { sh: 'echo ${kind:-resource}' } # resource | data_source
+    preconditions:
+      - sh: 'test -n "{{.name}}"'
+        msg: 'name is required (snake_case). e.g. task gen name=service_label'
+    cmds:
+      - >
+        go run ./cmd/tfgen
+        -out internal/{{.PKG}}
+        -kind {{.kind}}
+        -name {{.name}}
+        -pkg {{.PKG}}
+        -client-pkg {{.CLIENT_PKG}}
+        -client-type {{.CLIENT_TYPE}}
+      # - 'command -v goimports >/dev/null 2>&1 && goimports -w ./{{.PKG}} || gofmt -w ./{{.PKG}}'
+
+  gen:r:
+    desc: "Generate resource (shortcut): task gen:r name=service_label"
+    cmds:
+      - task: gen
+        vars: { name: '{{.name}}', kind: 'resource' }
+
+  gen:d:
+    desc: "Generate data_source (shortcut): task gen:d name=service_label"
+    cmds:
+      - task: gen
+        vars: { name: '{{.name}}', kind: 'data_source' }
