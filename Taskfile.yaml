@@ -37,3 +37,33 @@ tasks:
     cmds:
       - task: gen
         vars: { name: '{{.name}}', kind: 'data_source' }
+
+  build:
+    desc: "Build the project"
+    cmds:
+      - go build -v ./...
+
+  install:
+    desc: "Install the project"
+    cmds:
+      - go install -v ./...
+
+  test:
+    desc: "Run unit tests"
+    cmds:
+      - go test -v -cover -timeout=120s -parallel=10 ./...
+
+  test:acc:
+    desc: "Run acceptance tests"
+    cmds:
+      - TF_ACC=1 go test -v -cover -timeout=120m ./...
+
+  fmt:
+    desc: "Format code"
+    cmds:
+      - gofmt -s -w -e .
+  lint:
+    desc: "Lint code"
+    cmds:
+      - golangci-lint run
+
