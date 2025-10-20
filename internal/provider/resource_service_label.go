@@ -213,5 +213,23 @@ func (r *ServiceLabelResource) Update(ctx context.Context, req resource.UpdateRe
 
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *ServiceLabelResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	// TODO: implement API
+	var state ServiceLabelResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+
+	svc := waroom.NewLabelService(r.client)
+	uuid, err := uuid.Parse(state.UUID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("invalid UUID value", fmt.Sprintf("got error: %s", err))
+		return
+	}
+
+	params := waroom.DeleteServiceLabelParams{
+		Name: state.ServiceName.ValueString(),
+		UUID: uuid,
+	}
+	err = svc.DeleteServiceLabel(ctx, params)
+	if err != nil {
+		resp.Diagnostics.AddError("Waroom Client Error", fmt.Sprintf("DeleteServiceLabel, got error: %s", err))
+		return
+	}
 }
