@@ -85,6 +85,9 @@ func (r *ServiceLabelResource) Schema(_ context.Context, _ resource.SchemaReques
 			"service_name": schema.StringAttribute{
 				MarkdownDescription: "The name of the service to which the label belongs.",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Label name.",
