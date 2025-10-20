@@ -135,6 +135,7 @@ func (r *ServiceLabelResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	var state ServiceLabelResourceModel
+	state.Id = types.StringValue(created.UUID.String())
 	state.UUID = types.StringValue(created.UUID.String())
 	state.Color = types.StringValue(created.Color.Value)
 	state.Name = types.StringValue(created.Name)
