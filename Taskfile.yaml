@@ -4,7 +4,7 @@ version: '3'
 vars:
   PKG: provider
   CLIENT_PKG: github.com/topotal/waroom-client-go/waroom
-  CLIENT_TYPE: WaroomClient
+  CLIENT_TYPE: Client
 
 tasks:
   gen:

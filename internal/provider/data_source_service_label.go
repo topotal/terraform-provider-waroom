@@ -89,7 +89,7 @@ func (d *ServiceLabelSource) Configure(ctx context.Context, req datasource.Confi
 		return
 	}
 
-	client, ok := req.ProviderData.(*waroom.WaroomClient)
+	client, ok := req.ProviderData.(*waroom.Client)
 
 	if !ok {
 		resp.Diagnostics.AddError(

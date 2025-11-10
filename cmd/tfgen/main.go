@@ -18,7 +18,7 @@ var (
 	pkg        = flag.String("pkg", "provider", "出力先のGoパッケージ名（ディレクトリ名と一致させる）")
 	outDir     = flag.String("out", "", "出力ディレクトリ（未指定なら ./<pkg>）")
 	clientPkg  = flag.String("client-pkg", "github.com/topotal/waroom-client-go/waroom", "クライアントのimportパス")
-	clientType = flag.String("client-type", "WaroomClient", "クライアントの型名（ポインタ前提）")
+	clientType = flag.String("client-type", "Client", "クライアントの型名（ポインタ前提）")
 )
 
 // テンプレート本体。
@@ -59,7 +59,7 @@ func main() {
 		"Pascal":       pascal,      // ServiceLabel
 		"Camel":        camel,       // serviceLabel
 		"ClientImport": *clientPkg,  // github.com/topotal/waroom-client-go/waroom
-		"ClientType":   *clientType, // WaroomClient
+		"ClientType":   *clientType, // Client
 	}
 
 	tpl, err := template.New("resource").Parse(resourceTmpl)
