@@ -45,7 +45,7 @@ func (p *WaroomProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"endpoint": schema.StringAttribute{
-				MarkdownDescription: "waroom API endpoint. This can also be set via the WAROOM_API_ENDPOINT environment variable.",
+				MarkdownDescription: "Waroom API endpoint. This can also be set via the WAROOM_API_ENDPOINT environment variable.",
 				Optional:            true,
 			},
 			"api_key": schema.StringAttribute{
@@ -101,7 +101,7 @@ func (p *WaroomProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	}
 
 	// TODO: ここでAPI keyの疎通確認したほうが良いのかも？
-	client, err := waroom.NewWaroomClient(ctx,
+	client, err := waroom.NewClient(ctx,
 		waroom.WithBaseURL(endpoint),
 		waroom.WithUserAgent("waroom-client-go 0.0.1/terraform-provider-waroom "+p.version),
 		// waroom.WithRequestDump(),

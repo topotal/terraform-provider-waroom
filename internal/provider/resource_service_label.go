@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -28,7 +29,7 @@ func NewServiceLabelResource() resource.Resource {
 
 // ServiceLabelResource is the resource implementation.
 type ServiceLabelResource struct {
-	client *waroom.WaroomClient
+	client *waroom.Client
 }
 
 // ServiceLabelResourceModel describes the resource data model.
@@ -50,11 +51,11 @@ func (r *ServiceLabelResource) Configure(_ context.Context, req resource.Configu
 		return
 	}
 
-	client, ok := req.ProviderData.(*waroom.WaroomClient)
+	client, ok := req.ProviderData.(*waroom.Client)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *WaroomClient, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 		return
 	}

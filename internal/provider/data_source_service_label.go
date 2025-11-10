@@ -32,7 +32,7 @@ func NewServiceLabelSource() datasource.DataSource {
 
 // ServiceLabelSource defines the data source implementation.
 type ServiceLabelSource struct {
-	client *waroom.WaroomClient
+	client *waroom.Client
 }
 
 // ServiceLabelSourceModel describes the data source data model.
@@ -113,7 +113,7 @@ func (d *ServiceLabelSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	tflog.Info(ctx, "mapping", map[string]interface{}{
+	tflog.Info(ctx, "mapping", map[string]any{
 		"uuid":  data.UUID.ValueString(),
 		"name":  data.Name.ValueString(),
 		"color": data.Color.ValueString(),
