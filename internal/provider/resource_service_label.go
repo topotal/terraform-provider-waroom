@@ -22,6 +22,10 @@ var (
 	_ resource.ResourceWithConfigure = &ServiceLabelResource{}
 )
 
+const (
+	DefaultColor string = "008BD1"
+)
+
 // NewServiceLabelResource is a helper to simplify provider implementation.
 func NewServiceLabelResource() resource.Resource {
 	return &ServiceLabelResource{}
@@ -123,15 +127,11 @@ func (r *ServiceLabelResource) Create(ctx context.Context, req resource.CreateRe
 		Name: plan.ServiceName.ValueString(), // ここのNameはサービス名
 	}
 
-	label := waroom.Label{
-		Name: plan.Name.ValueString(),
+	wreq := waroom.CreateServiceLabelReq{
+		Name:  plan.Name.ValueString(),
+		Color: plan.Color.ValueString(),
 	}
-
-	if !plan.Color.IsNull() && !plan.Color.IsUnknown() {
-		label.Color.SetTo(plan.Color.ValueString())
-	}
-
-	created, err := svc.CreateServiceLabel(ctx, label, params)
+	created, err := svc.CreateServiceLabel(ctx, wreq, params)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("CreateServiceLabel, got error: %s", err))
 		//TODO: 409 conflictだった場合に terraform import 可能なヒントを提示
@@ -209,7 +209,61 @@ func (r *ServiceLabelResource) Read(ctx context.Context, req resource.ReadReques
 
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *ServiceLabelResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// TODO: implement
+	var plan ServiceLabelResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+
+	var state ServiceLabelResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	svc := waroom.NewLabelService(r.client)
+
+	uuid, err := uuid.Parse(state.UUID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Invalid UUID",
+			fmt.Sprintf("Unable to parse UUID from state: %s", err),
+		)
+		return
+	}
+
+	params := waroom.UpdateServiceLabelParams{
+		Name: plan.ServiceName.ValueString(),
+		UUID: uuid,
+	}
+
+	ureq := waroom.UpdateServiceLabelReq{
+		Name:  waroom.NewOptString(plan.Name.ValueString()),
+		Color: waroom.NewOptString(plan.Color.ValueString()),
+	}
+	created, err := svc.UpdateServiceLabel(ctx, ureq, params)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Update Error",
+			fmt.Sprintf("Unable to create service label during update: %s", err),
+		)
+		return
+	}
+
+	// Update state with new values
+	var newState ServiceLabelResourceModel
+	newState.Id = types.StringValue(created.UUID.String())
+	newState.UUID = types.StringValue(created.UUID.String())
+	newState.Color = types.StringValue(created.Color.Value)
+	newState.Name = types.StringValue(created.Name)
+	newState.ServiceName = plan.ServiceName
+
+	tflog.Info(ctx, "created new service label during update", map[string]interface{}{
+		"id":    newState.UUID.ValueString(),
+		"uuid":  newState.UUID.ValueString(),
+		"name":  newState.Name.ValueString(),
+		"color": newState.Color.ValueString(),
+	})
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &newState)...)
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
