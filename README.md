@@ -16,8 +16,8 @@ Once you've written your provider, you'll want to [publish it on the Terraform R
 
 ## Requirements
 
-- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
-- [Go](https://golang.org/doc/install) >= 1.23
+- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.9
+- [Go](https://golang.org/doc/install) >= 1.25
 
 ## Building The Provider
 
@@ -27,6 +27,13 @@ Once you've written your provider, you'll want to [publish it on the Terraform R
 
 ```shell
 go install
+```
+
+## Use local `waroom-client-go`
+
+```shell
+go work init .
+go work use ../waroom-client-go
 ```
 
 ## Adding Dependencies
@@ -53,12 +60,16 @@ If you wish to work on the provider, you'll first need [Go](http://www.golang.or
 
 To compile the provider, run `go install`. This will build the provider and put the provider binary in the `$GOPATH/bin` directory.
 
-To generate or update documentation, run `make generate`.
+To generate or update documentation, run `task gen`.
 
-In order to run the full suite of Acceptance tests, run `make testacc`.
+In order to run the full suite of Acceptance tests, run `task testacc`.
 
 *Note:* Acceptance tests create real resources, and often cost money to run.
 
 ```shell
-make testacc
+task test:acc
 ```
+
+## docs
+
+- [Terraform AWS Provider - Contributor Guide](https://hashicorp.github.io/terraform-provider-aws)
