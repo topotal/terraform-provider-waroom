@@ -190,7 +190,6 @@ func (r *ServiceLabelResource) Read(ctx context.Context, req resource.ReadReques
 	}
 
 	for _, label := range labels {
-		// API response to model
 		if label.UUID.String() == data.UUID.ValueString() || label.Name == data.Name.ValueString() {
 			data.UUID = types.StringValue(label.UUID.String())
 			data.Color = types.StringValue(label.Color.Value)
@@ -203,7 +202,6 @@ func (r *ServiceLabelResource) Read(ctx context.Context, req resource.ReadReques
 		resp.Diagnostics.AddWarning("Not Found", "The service label was not found.")
 	}
 
-	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -243,7 +241,7 @@ func (r *ServiceLabelResource) Update(ctx context.Context, req resource.UpdateRe
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Update Error",
-			fmt.Sprintf("Unable to create service label during update: %s", err),
+			fmt.Sprintf("failed to label update: %s", err),
 		)
 		return
 	}
@@ -256,7 +254,7 @@ func (r *ServiceLabelResource) Update(ctx context.Context, req resource.UpdateRe
 	newState.Name = types.StringValue(created.Name)
 	newState.ServiceName = plan.ServiceName
 
-	tflog.Info(ctx, "created new service label during update", map[string]interface{}{
+	tflog.Info(ctx, "label updated", map[string]interface{}{
 		"id":    newState.UUID.ValueString(),
 		"uuid":  newState.UUID.ValueString(),
 		"name":  newState.Name.ValueString(),
