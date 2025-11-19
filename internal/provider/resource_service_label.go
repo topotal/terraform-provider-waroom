@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -285,4 +287,34 @@ func (r *ServiceLabelResource) Delete(ctx context.Context, req resource.DeleteRe
 		resp.Diagnostics.AddError("Waroom Client Error", fmt.Sprintf("DeleteServiceLabel, got error: %s", err))
 		return
 	}
+}
+
+// ImportState imports an existing service label into Terraform state.
+// The import ID must be in the format: service_name,uuid
+// Example: terraform import waroom_service_label.example my-service,123e4567-e89b-12d3-a456-426614174000
+func (r *ServiceLabelResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	idParts := strings.Split(req.ID, ",")
+	if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
+		resp.Diagnostics.AddError(
+			"Invalid Import ID",
+			fmt.Sprintf("Expected import ID format: service_name,uuid. Got: %s", req.ID),
+		)
+		return
+	}
+
+	serviceName := idParts[0]
+	uuidStr := idParts[1]
+
+	_, err := uuid.Parse(uuidStr)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Invalid UUID",
+			fmt.Sprintf("The UUID part of the import ID is not valid: %s", err),
+		)
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("service_name"), serviceName)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("uuid"), uuidStr)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), uuidStr)...)
 }
