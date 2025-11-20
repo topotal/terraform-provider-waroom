@@ -20,8 +20,9 @@ import (
 )
 
 var (
-	_ resource.Resource              = &ServiceLabelResource{}
-	_ resource.ResourceWithConfigure = &ServiceLabelResource{}
+	_ resource.Resource                = &ServiceLabelResource{}
+	_ resource.ResourceWithConfigure   = &ServiceLabelResource{}
+	_ resource.ResourceWithImportState = &ServiceLabelResource{}
 )
 
 const (
