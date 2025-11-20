@@ -192,17 +192,20 @@ func (r *ServiceLabelResource) Read(ctx context.Context, req resource.ReadReques
 		return
 	}
 
+	var found bool
 	for _, label := range labels {
 		if label.UUID.String() == data.UUID.ValueString() || label.Name == data.Name.ValueString() {
 			data.UUID = types.StringValue(label.UUID.String())
 			data.Color = types.StringValue(label.Color.Value)
 			data.Name = types.StringValue(label.Name)
-			// data.UpdateAt = types.StringValue(label.UpdatedAt.Value.String())
+			found = true
+			break
 		}
 	}
 
-	if data.UUID.IsNull() {
-		resp.Diagnostics.AddWarning("Not Found", "The service label was not found.")
+	if !found {
+		resp.State.RemoveResource(ctx)
+		return
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
