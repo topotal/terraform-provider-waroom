@@ -1,0 +1,96 @@
+# terraform-provider-waroom
+
+The [Waroom](https://waroom.com/) Provider enables Terraform to manage [Waroom](https://waroom.com/) resources.
+
+## Docs
+
+### Implement a provider with the Terraform Plugin Framework
+
+This is the official HashiCorp documentation, providing a comprehensive guide for implementing Terraform providers.
+Our implementation follows this documentation for implementation details, best practices, and standards.
+
+- [Introduction](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-provider#introduction)
+- [Configure client](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-provider-configure)
+- [Data sources](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-data-source-read)
+- [Logging](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-logging)
+- [Create and read](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-resource-create)
+- [Update](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-resource-update)
+- [Delete](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-resource-delete)
+- [Import](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-resource-import)
+- [Functions](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-functions)
+- [Testing](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-acceptance-testing)
+- [Generate documentation](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-documentation)
+- [Publish](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-release-publish)
+- [Function-only providers](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-function-only)
+
+## Examples
+
+- [Examples](https://github.com/topotal/terraform-provider-waroom/main/examples): List of example files.
+
+## Project Structure
+
+### Core Components
+
+- `internal/provider/`: Provider implementation
+  - `provider.go`: Main provider configuration and setup
+  - `data_source_*.go`: Data source implementations
+  - `resource_*.go`: Resource implementations
+  - `*_test.go`: Unit and acceptance tests
+
+### Currently Implemented Resources
+
+- **Service Label Resource** (`waroom_service_label`)
+  - Manages Waroom service labels
+  - Supports: Create, Read, Update, Delete, Import
+  - Files: `resource_service_label.go`, `resource_service_label_test.go`
+
+- **Service Label Data Source** (`waroom_service_label`)
+  - Reads Waroom service label data
+  - Files: `data_source_service_label.go`, `data_source_service_label_test.go`
+
+### Key Dependencies
+
+- **Terraform Plugin Framework**: v1.15.1
+- **Waroom Client SDK**: `github.com/topotal/waroom-client-go` (alpha)
+- **Testing Framework**: testify v1.11.1
+- **Go Version**: 1.25.1
+
+### Development Tools
+
+- **Task Runner**: Uses [Taskfile](https://taskfile.dev/) for common operations
+  - `task gen name=<name> [kind=resource|data_source]`: Generate new resource/data source scaffolding
+  - `task gen:r name=<name>`: Generate resource (shortcut)
+  - `task gen:d name=<name>`: Generate data source (shortcut)
+  - `task build`: Build the project
+  - `task test`: Run unit tests
+  - `task test:acc`: Run acceptance tests (requires E2E_WAROOM_API_KEY and E2E_WAROOM_API_ENDPOINT)
+  - `task fmt`: Format code
+  - `task lint`: Run linter
+
+- **Code Generator**: `cmd/tfgen` - Custom tool for generating resource/data source boilerplate
+
+## Implementation Guidelines
+
+### When Adding New Resources
+
+1. Use `task gen:r name=<resource_name>` to generate scaffolding
+2. Implement CRUD operations following existing patterns in `resource_service_label.go`
+3. Add unit tests and acceptance tests
+4. Follow Terraform Plugin Framework documentation (linked above)
+5. Use the Waroom Client SDK (`waroom-client-go`) for API interactions
+
+### Testing Approach
+
+- **Unit Tests**: Standard Go tests using testify assertions
+- **Acceptance Tests**: Use Terraform's testing framework with `TF_ACC=1`
+- Always test the full CRUD lifecycle and import functionality
+- E2E tests require valid Waroom API credentials
+
+### Error Handling
+
+- Handle 404 errors appropriately (e.g., remove from state in Read operations)
+- Use Terraform's diagnostic system for error reporting
+- Log important operations using terraform-plugin-log
+
+## Optional
+
