@@ -8,15 +8,40 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
   unit-test:
     runs-on: ubuntu-latest
     needs: setup
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout terraform-provider-waroom
+        uses: actions/checkout@v6
+        with:
+          path: terraform-provider-waroom
+
+      - name: Checkout waroom-client-go
+        uses: actions/checkout@v6
+        with:
+          repository: topotal/waroom-client-go
+          path: waroom-client-go
+          token: ${{ secrets.WAROOM_CLIENT_GO_PAT }}
+
       - uses: actions/setup-go@v5
         with:
+          go-version-file: terraform-provider-waroom/go.mod
           cache: true
+          cache-dependency-path: |
+            terraform-provider-waroom/go.sum
+            waroom-client-go/go.sum
+
+      - name: Create go.work
+        working-directory: terraform-provider-waroom
+        run: |
+          go work init
+          go work use ../waroom-client-go
+          go work sync
+          cat go.work
+
       - name: Run unit tests
+        working-directory: terraform-provider-waroom
         run: go test -timeout=300s -parallel=10 -cover -v ./...
