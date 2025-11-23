@@ -19,6 +19,7 @@ Our implementation follows this documentation for implementation details, best p
 - [Import](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-resource-import)
 - [Functions](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-functions)
 - [Testing](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-acceptance-testing)
+- [Testing Patterns](https://developer.hashicorp.com/terraform/plugin/testing/testing-patterns)
 - [Generate documentation](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-documentation)
 - [Publish](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-release-publish)
 - [Function-only providers](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-function-only)
