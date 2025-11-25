@@ -43,15 +43,17 @@ func (p *WaroomProvider) Metadata(ctx context.Context, req provider.MetadataRequ
 
 func (p *WaroomProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		MarkdownDescription: "The Waroom provider allows you to manage configurations and resources on [waroom.com](https://waroom.com/).",
 		Attributes: map[string]schema.Attribute{
 			"endpoint": schema.StringAttribute{
-				MarkdownDescription: "Waroom API endpoint. This can also be set via the WAROOM_API_ENDPOINT environment variable.",
-				Optional:            true,
+				MarkdownDescription: "Waroom API endpoint. This can also be set via the `WAROOM_API_ENDPOINT` environment variable. " +
+					"Defaults to the production Waroom API endpoint if not specified.",
+				Optional: true,
 			},
 			"api_key": schema.StringAttribute{
-				Optional:    true,
-				Sensitive:   true,
-				Description: "(Required unless validate is false) Waroom API key. This can also be set via the WAROOM_API_KEY environment variable.",
+				Optional:            true,
+				Sensitive:           true,
+				MarkdownDescription: "Waroom API key for authentication. This can also be set via the `WAROOM_API_KEY` environment variable.",
 			},
 		},
 	}

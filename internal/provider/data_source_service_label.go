@@ -51,32 +51,33 @@ func (d *ServiceLabelSource) Metadata(ctx context.Context, req datasource.Metada
 
 func (d *ServiceLabelSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		// TODO: write docs
-		MarkdownDescription: "Waroom service label data source",
+		MarkdownDescription: "Retrieves information about a Waroom service label. Use this data source to get details about an existing label within a service.\n\n" +
+			"This is useful when you need to reference label properties (like UUID or color) that were created outside of Terraform, " +
+			"or when you want to use label information from one service in another part of your configuration.",
 
 		Attributes: map[string]schema.Attribute{
 			"service_name": schema.StringAttribute{
-				MarkdownDescription: "The name of the service to which the label belongs.",
+				MarkdownDescription: "The name of the Waroom service containing the label.",
 				Required:            true,
 			},
 			"uuid": schema.StringAttribute{
-				MarkdownDescription: "Label UUID.",
+				MarkdownDescription: "The unique identifier (UUID) of the label.",
 				Computed:            true,
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Label name.",
+				MarkdownDescription: "The display name of the label to look up.",
 				Required:            true,
 			},
 			"color": schema.StringAttribute{
-				MarkdownDescription: "Label color in hex format(without#).",
+				MarkdownDescription: "The color of the label in hex format without the `#` prefix.",
 				Computed:            true,
 			},
 			"created_at": schema.StringAttribute{
-				MarkdownDescription: "Creation timestamp",
+				MarkdownDescription: "The timestamp when the label was created.",
 				Computed:            true,
 			},
 			"updated_at": schema.StringAttribute{
-				MarkdownDescription: "",
+				MarkdownDescription: "The timestamp when the label was last updated.",
 				Computed:            true,
 			},
 		},
