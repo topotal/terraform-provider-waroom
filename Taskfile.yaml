@@ -38,6 +38,11 @@ tasks:
       - task: gen
         vars: { name: '{{.name}}', kind: 'data_source' }
 
+  gen-docs:
+    desc: "Generate documentation for resources and data sources"
+    cmds:
+      - cd tools; go generate ./...
+
   build:
     desc: "Build the project"
     cmds:
