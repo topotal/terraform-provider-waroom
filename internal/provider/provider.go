@@ -47,7 +47,7 @@ func (p *WaroomProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 		Attributes: map[string]schema.Attribute{
 			"endpoint": schema.StringAttribute{
 				MarkdownDescription: "Waroom API endpoint. This can also be set via the `WAROOM_API_ENDPOINT` environment variable. " +
-					"Defaults to the production Waroom API endpoint if not specified.",
+					"Either this attribute or the environment variable must be set.",
 				Optional: true,
 			},
 			"api_key": schema.StringAttribute{
@@ -86,7 +86,7 @@ func (p *WaroomProvider) Configure(ctx context.Context, req provider.ConfigureRe
 
 	if endpoint == "" {
 		resp.Diagnostics.AddAttributeError(
-			path.Root("endpoint)"),
+			path.Root("endpoint"),
 			"Missing Waroom API endpoint",
 			"The provider cannot create the Waroom API client as there is an unknown configuration value for the Waroom API host. "+
 				"Either target apply the source of the value first, set the value statically in the configuration, or use the WAROOM_API_ENDPOINT environment variable.",
@@ -102,9 +102,14 @@ func (p *WaroomProvider) Configure(ctx context.Context, req provider.ConfigureRe
 		)
 	}
 
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	// TODO: ここでAPI keyの疎通確認したほうが良いのかも？
 	client, err := waroom.NewClient(ctx,
 		waroom.WithBaseURL(endpoint),
+		waroom.WithAPIKey(apiKey),
 		waroom.WithUserAgent("waroom-client-go 0.0.1/terraform-provider-waroom "+p.version),
 		// waroom.WithRequestDump(),
 		// waroom.WithResponseDump(),

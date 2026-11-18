@@ -36,25 +36,24 @@ Our implementation follows this documentation for implementation details, best p
   - `provider.go`: Main provider configuration and setup
   - `data_source_*.go`: Data source implementations
   - `resource_*.go`: Resource implementations
-  - `*_test.go`: Unit and acceptance tests
+  - `provider_test.go`: Shared test setup (provider factories for acceptance tests)
 
 ### Currently Implemented Resources
 
 - **Service Label Resource** (`waroom_service_label`)
   - Manages Waroom service labels
   - Supports: Create, Read, Update, Delete, Import
-  - Files: `resource_service_label.go`, `resource_service_label_test.go`
+  - Files: `resource_service_label.go`
 
 - **Service Label Data Source** (`waroom_service_label`)
   - Reads Waroom service label data
-  - Files: `data_source_service_label.go`, `data_source_service_label_test.go`
+  - Files: `data_source_service_label.go`
 
 ### Key Dependencies
 
-- **Terraform Plugin Framework**: v1.15.1
+- **Terraform Plugin Framework**: v1.19.0
 - **Waroom Client SDK**: `github.com/topotal/waroom-client-go` (alpha)
-- **Testing Framework**: testify v1.11.1
-- **Go Version**: 1.25.1
+- **Go Version**: 1.27.4
 
 ### Development Tools
 

@@ -6,12 +6,16 @@ terraform {
   }
 }
 
+variable "waroom_api_key" {
+  type      = string
+  sensitive = true
+}
+
 # Configure the Waroom Provider
 provider "waroom" {
-  # API key can be set via WAROOM_API_KEY environment variable
+  # api_key can also be set via the WAROOM_API_KEY environment variable
   api_key = var.waroom_api_key
 
-  # Optional: Custom API endpoint
-  # endpoint can be set via WAROOM_API_ENDPOINT environment variable
-  # endpoint = "https://api.waroom.com/api/v0"
+  # endpoint can also be set via the WAROOM_API_ENDPOINT environment variable
+  endpoint = "https://api.waroom.com/api/v0"
 }

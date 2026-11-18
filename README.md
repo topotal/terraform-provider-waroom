@@ -20,9 +20,15 @@ terraform {
   }
 }
 
+variable "waroom_api_key" {
+  type      = string
+  sensitive = true
+}
+
 # Configure the Waroom Provider
 provider "waroom" {
-  api_key = var.waroom_api_key
+  api_key  = var.waroom_api_key
+  endpoint = "https://api.waroom.com/api/v0"
 }
 
 # Create a service label
@@ -37,15 +43,16 @@ See [`examples/`](examples/) for more examples.
 
 ## Authentication
 
-The provider needs a Waroom API key. It can be configured either in the provider block or via environment variables.
+The provider needs a Waroom API key and API endpoint. Each can be configured either in the provider block or via an environment variable.
 
-| Provider argument | Environment variable  | Required | Description                                                        |
-| ----------------- | --------------------- | -------- | ------------------------------------------------------------------ |
-| `api_key`         | `WAROOM_API_KEY`      | Yes      | Waroom API key.                                                    |
-| `endpoint`        | `WAROOM_API_ENDPOINT` | No       | Waroom API endpoint. Defaults to the production Waroom API endpoint. |
+| Provider argument | Environment variable  | Required | Description          |
+| ----------------- | --------------------- | -------- | -------------------- |
+| `api_key`         | `WAROOM_API_KEY`      | Yes      | Waroom API key.      |
+| `endpoint`        | `WAROOM_API_ENDPOINT` | Yes      | Waroom API endpoint. |
 
 ```shell
 export WAROOM_API_KEY="<your-api-key>"
+export WAROOM_API_ENDPOINT="https://api.waroom.com/api/v0"
 terraform plan
 ```
 
