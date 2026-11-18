@@ -1,0 +1,36 @@
+name: Documentation Preview
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**/*.md'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      docs: ${{ steps.filter.outputs.docs }}
+      docs_files: ${{ steps.filter.outputs.docs_files }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          list-files: json
+          filters: |
+            docs:
+              - added|modified: 'docs/**/*.md'
+
+  # Screenshots are saved as an artifact (terraform-docs-screenshots) only; no S3 upload / PR comment yet.
+  # Keep the ref after @ and action_ref pinned to the same commit of Sho2010/terraform-docs-preview-action.
+  preview:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.docs == 'true'
+    uses: Sho2010/terraform-docs-preview-action/.github/workflows/create-preview-image.yaml@dee828b8fa493ac8f68e0fc0a8876b0f0db6c614
+    with:
+      docs_path: docs
+      changed_files: ${{ needs.detect-changes.outputs.docs_files }}
+      action_ref: dee828b8fa493ac8f68e0fc0a8876b0f0db6c614
