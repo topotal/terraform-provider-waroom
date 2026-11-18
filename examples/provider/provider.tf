@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     waroom = {
-      source = "registry.terraform.io/topotal/waroom"
+      source = "topotal/waroom"
     }
   }
 }

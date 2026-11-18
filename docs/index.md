@@ -15,7 +15,7 @@ The Waroom provider allows you to manage configurations and resources on [waroom
 terraform {
   required_providers {
     waroom = {
-      source = "registry.terraform.io/topotal/waroom"
+      source = "topotal/waroom"
     }
   }
 }

@@ -1,75 +1,147 @@
-# Terraform Provider Scaffolding (Terraform Plugin Framework)
+# Terraform Provider for Waroom
 
-_This template repository is built on the [Terraform Plugin Framework](https://github.com/hashicorp/terraform-plugin-framework). The template repository built on the [Terraform Plugin SDK](https://github.com/hashicorp/terraform-plugin-sdk) can be found at [terraform-provider-scaffolding](https://github.com/hashicorp/terraform-provider-scaffolding). See [Which SDK Should I Use?](https://developer.hashicorp.com/terraform/plugin/framework-benefits) in the Terraform documentation for additional information._
+- Website: [waroom.com](https://waroom.com/)
+- Documentation: [`docs/`](docs/)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
 
-This repository is a *template* for a [Terraform](https://www.terraform.io) provider. It is intended as a starting point for creating Terraform providers, containing:
+The Waroom Provider enables [Terraform](https://www.terraform.io) to manage [Waroom](https://waroom.com/) resources.
 
-- A resource and a data source (`internal/provider/`),
-- Examples (`examples/`) and generated documentation (`docs/`),
-- Miscellaneous meta files.
+> [!NOTE]
+> This provider is under active development and has not been released yet. Resources and their schemas may change without notice.
 
-These files contain boilerplate code that you will need to edit to create your own Terraform provider. Tutorials for creating Terraform providers can be found on the [HashiCorp Developer](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework) platform. _Terraform Plugin Framework specific guides are titled accordingly._
+## Usage Example
 
-Please see the [GitHub template repository documentation](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-from-a-template) for how to create a new repository from this template on GitHub.
+```terraform
+terraform {
+  required_providers {
+    waroom = {
+      source = "topotal/waroom"
+    }
+  }
+}
 
-Once you've written your provider, you'll want to [publish it on the Terraform Registry](https://developer.hashicorp.com/terraform/registry/providers/publishing) so that others can use it.
+# Configure the Waroom Provider
+provider "waroom" {
+  api_key = var.waroom_api_key
+}
+
+# Create a service label
+resource "waroom_service_label" "example" {
+  service_name = "my-service"
+  name         = "production"
+  color        = "ff5733"
+}
+```
+
+See [`examples/`](examples/) for more examples.
+
+## Authentication
+
+The provider needs a Waroom API key. It can be configured either in the provider block or via environment variables.
+
+| Provider argument | Environment variable  | Required | Description                                                        |
+| ----------------- | --------------------- | -------- | ------------------------------------------------------------------ |
+| `api_key`         | `WAROOM_API_KEY`      | Yes      | Waroom API key.                                                    |
+| `endpoint`        | `WAROOM_API_ENDPOINT` | No       | Waroom API endpoint. Defaults to the production Waroom API endpoint. |
+
+```shell
+export WAROOM_API_KEY="<your-api-key>"
+terraform plan
+```
+
+## Resources and Data Sources
+
+| Name                   | Resource                                          | Data Source                                          |
+| ---------------------- | ------------------------------------------------- | ---------------------------------------------------- |
+| `waroom_service_label` | [docs](docs/resources/service_label.md)           | [docs](docs/data-sources/service_label.md)           |
 
 ## Requirements
 
 - [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.9
-- [Go](https://golang.org/doc/install) >= 1.25
+- [Go](https://golang.org/doc/install) >= 1.27 (to build the provider)
+- [Task](https://taskfile.dev/) (to run development tasks)
 
-## Building The Provider
+## Developing the Provider
 
-1. Clone the repository
-1. Enter the repository directory
-1. Build the provider using the Go `install` command:
+### Building
 
 ```shell
-go install
+git clone git@github.com:topotal/terraform-provider-waroom.git
+cd terraform-provider-waroom
+task install
 ```
 
-## Use local `waroom-client-go`
+This builds the provider and puts the binary in `$GOPATH/bin`.
+
+### Using the Provider Locally
+
+To use a locally built provider, add a [development override](https://developer.hashicorp.com/terraform/cli/config/config-file#development-overrides-for-provider-developers) to `~/.terraformrc`:
+
+```hcl
+provider_installation {
+  dev_overrides {
+    "registry.terraform.io/topotal/waroom" = "<GOPATH>/bin"
+  }
+  direct {}
+}
+```
+
+### Using a Local `waroom-client-go`
 
 ```shell
 go work init .
 go work use ../waroom-client-go
 ```
 
-## Adding Dependencies
+### Adding a Resource or Data Source
 
-This provider uses [Go modules](https://github.com/golang/go/wiki/Modules).
-Please see the Go documentation for the most up to date information about using Go modules.
-
-To add a new dependency `github.com/author/dependency` to your Terraform provider:
+Scaffolding can be generated with `cmd/tfgen`:
 
 ```shell
-go get github.com/author/dependency
-go mod tidy
+task gen:r name=<name>  # resource
+task gen:d name=<name>  # data source
 ```
 
-Then commit the changes to `go.mod` and `go.sum`.
+### Testing
 
-## Using the provider
-
-Fill this in for each provider
-
-## Developing the Provider
-
-If you wish to work on the provider, you'll first need [Go](http://www.golang.org) installed on your machine (see [Requirements](#requirements) above).
-
-To compile the provider, run `go install`. This will build the provider and put the provider binary in the `$GOPATH/bin` directory.
-
-To generate or update documentation, run `task gen`.
-
-In order to run the full suite of Acceptance tests, run `task testacc`.
-
-*Note:* Acceptance tests create real resources, and often cost money to run.
+Run unit tests:
 
 ```shell
+task test
+```
+
+Run acceptance tests. They require the `E2E_WAROOM_API_KEY` and `E2E_WAROOM_API_ENDPOINT` environment variables.
+
+> [!WARNING]
+> Acceptance tests create real resources in the target Waroom environment.
+
+```shell
+export E2E_WAROOM_API_KEY="<your-api-key>"
+export E2E_WAROOM_API_ENDPOINT="<api-endpoint>"
 task test:acc
 ```
 
-## docs
+### Generating Documentation
 
+Documentation in `docs/` is generated by [terraform-plugin-docs](https://github.com/hashicorp/terraform-plugin-docs) from the schema and `examples/`:
+
+```shell
+task gen-docs
+```
+
+### Other Tasks
+
+```shell
+task fmt   # Format code
+task lint  # Run golangci-lint
+task --list
+```
+
+## References
+
+- [Terraform Plugin Framework](https://developer.hashicorp.com/terraform/plugin/framework)
 - [Terraform AWS Provider - Contributor Guide](https://hashicorp.github.io/terraform-provider-aws)
+
+## License
+
+[MIT](LICENSE)
