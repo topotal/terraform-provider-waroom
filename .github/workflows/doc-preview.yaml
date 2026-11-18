@@ -9,6 +9,16 @@ permissions:
   contents: read
   pull-requests: read
 
+concurrency:
+  group: doc-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # Screenshot script (scripts/preview-docs.js) and its Playwright deps live in this repo.
+  PREVIEW_ACTION_REPO: Sho2010/terraform-docs-preview-action
+  PREVIEW_ACTION_REF: dee828b8fa493ac8f68e0fc0a8876b0f0db6c614
+  COMMENT_MARKER: '<!-- terraform-docs-preview -->'
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
@@ -24,13 +34,122 @@ jobs:
             docs:
               - added|modified: 'docs/**/*.md'
 
-  # Screenshots are saved as an artifact (terraform-docs-screenshots) only; no S3 upload / PR comment yet.
-  # Keep the ref after @ and action_ref pinned to the same commit of Sho2010/terraform-docs-preview-action.
-  preview:
+  generate:
     needs: detect-changes
     if: needs.detect-changes.outputs.docs == 'true'
-    uses: Sho2010/terraform-docs-preview-action/.github/workflows/create-preview-image.yaml@dee828b8fa493ac8f68e0fc0a8876b0f0db6c614
-    with:
-      docs_path: docs
-      changed_files: ${{ needs.detect-changes.outputs.docs_files }}
-      action_ref: dee828b8fa493ac8f68e0fc0a8876b0f0db6c614
+    runs-on: ubuntu-latest
+    # This job runs third-party code (npm deps, Playwright), so keep the token and checkout minimal.
+    permissions:
+      contents: read
+    outputs:
+      files: ${{ steps.generate.outputs.files }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: target-repo
+          sparse-checkout: docs
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ env.PREVIEW_ACTION_REPO }}
+          ref: ${{ env.PREVIEW_ACTION_REF }}
+          path: .preview-action
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: .preview-action/package-lock.json
+      - name: Install deps & Playwright
+        working-directory: .preview-action
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install chromium
+      # preview-docs.js always writes screenshots/<basename>.png, which collides for
+      # resources/foo.md and data-sources/foo.md, and screenshots/ also holds the repo's
+      # sample images. Move each result out right away under a path-derived name
+      # (docs/resources/foo.md -> resources__foo.png).
+      - name: Generate screenshots
+        id: generate
+        working-directory: .preview-action
+        env:
+          CHANGED_FILES: ${{ needs.detect-changes.outputs.docs_files }}
+        run: |
+          mkdir -p ../previews
+          failed=0
+          while read -r file; do
+            # File names end up in the PR comment markdown, so allow only plain paths.
+            if [[ ! $file =~ ^docs/[A-Za-z0-9._/-]+\.md$ ]]; then
+              echo "::warning::Skipped preview for a file with unsupported characters in its name"
+              continue
+            fi
+            name="${file#docs/}"
+            name="${name%.md}"
+            name="${name//\//__}.png"
+            if node scripts/preview-docs.js "../target-repo/$file"; then
+              mv "screenshots/$(basename "$file" .md).png" "../previews/$name"
+            else
+              echo "::error file=$file::Failed to generate preview"
+              failed=1
+            fi
+          done < <(jq -r '.[]' <<<"$CHANGED_FILES")
+          echo "files=$(find ../previews -name '*.png' -printf '%f\n' | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
+          exit "$failed"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: docs-previews
+          path: previews
+          retention-days: 1
+
+  # upload-artifact can only skip zipping for a single file, so upload one artifact per image.
+  upload:
+    needs: generate
+    if: ${{ !cancelled() && needs.generate.outputs.files != '' && needs.generate.outputs.files != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        file: ${{ fromJSON(needs.generate.outputs.files) }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: docs-previews
+          path: previews
+      - uses: actions/upload-artifact@v7
+        with:
+          path: previews/${{ matrix.file }}
+          archive: false
+          retention-days: 7
+
+  comment:
+    needs: upload
+    if: ${{ !cancelled() && needs.upload.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: write
+    steps:
+      - name: Comment preview links
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          links=$(gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/artifacts" \
+            --jq '.artifacts[] | select(.name | endswith(".png")) | "\(.name)\t\(.id)"' \
+            | sort | while IFS=$'\t' read -r name id; do
+                doc="docs/${name%.png}.md"
+                echo "- [\`${doc//__//}\`](https://github.com/$REPO/actions/runs/$RUN_ID/artifacts/$id)"
+              done)
+          body=$(printf '%s\n### Documentation Preview\n\n%s\n\nGenerated for %s ([run](https://github.com/%s/actions/runs/%s)). Links expire in 7 days.\n' \
+            "$COMMENT_MARKER" "$links" "$HEAD_SHA" "$REPO" "$RUN_ID")
+          comment_id=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$COMMENT_MARKER\"))) | .id" | head -n1)
+          if [ -n "$comment_id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$comment_id" -f body="$body" > /dev/null
+          else
+            gh api -X POST "repos/$REPO/issues/$PR_NUMBER/comments" -f body="$body" > /dev/null
+          fi
