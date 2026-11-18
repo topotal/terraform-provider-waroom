@@ -40,3 +40,6 @@ go.work.sum
 
 # Claude Code worktrees (used by the implement-candidate skill)
 .claude/worktrees/
+
+# Per-developer acceptance test environment (see .env.e2e.example)
+.env.e2e

@@ -87,6 +87,18 @@ Run acceptance tests. They require the `E2E_WAROOM_API_KEY` and `E2E_WAROOM_API_
 > [!WARNING]
 > Acceptance tests create real resources in the target Waroom environment.
 
+The recommended way is a per-developer `.env.e2e` file loaded with the [1Password CLI](https://developer.1password.com/docs/cli/) (`op`). Copy `.env.e2e.example` to `.env.e2e` (gitignored) and fill it in; each value can be an `op://` secret reference or a plain value (e.g. for a local Waroom):
+
+```shell
+cp .env.e2e.example .env.e2e
+task test:acc:op                       # all acceptance tests
+task test:acc:op -- -run TestAccFoo    # a subset
+```
+
+`task test:acc:op` reads `.env.e2e` from the main checkout, so it also works in git worktrees. Set `ENV_E2E_FILE` to use another file.
+
+Alternatively, export the variables yourself and run `task test:acc`:
+
 ```shell
 export E2E_WAROOM_API_KEY="<your-api-key>"
 export E2E_WAROOM_API_ENDPOINT="<api-endpoint>"
