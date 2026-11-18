@@ -64,7 +64,7 @@ terraform plan
 
 ## Requirements
 
-- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.9
+- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.16
 - [Go](https://golang.org/doc/install) >= 1.27 (to build the provider)
 - [Task](https://taskfile.dev/) (to run development tasks)
 
