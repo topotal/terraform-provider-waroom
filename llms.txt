@@ -53,21 +53,32 @@ Our implementation follows this documentation for implementation details, best p
 
 - **Terraform Plugin Framework**: v1.19.0
 - **Waroom Client SDK**: `github.com/topotal/waroom-client-go` (alpha)
+  - The version pinned in `go.mod` is what CI builds against. A local `go.work` (gitignored) may point to `../waroom-client-go`, which can contain unreleased APIs. To check what the pinned version provides, use `GOWORK=off` (e.g. `GOWORK=off go mod download -json github.com/topotal/waroom-client-go@<version>` for its source directory).
 - **Go Version**: 1.27.4
 
 ### Development Tools
 
 - **Task Runner**: Uses [Taskfile](https://taskfile.dev/) for common operations
-  - `task gen name=<name> [kind=resource|data_source]`: Generate new resource/data source scaffolding
+  - `task gen name=<name>`: Generate new resource scaffolding
   - `task gen:r name=<name>`: Generate resource (shortcut)
-  - `task gen:d name=<name>`: Generate data source (shortcut)
+  - `task gen:d name=<name>`: Not supported yet (`cmd/tfgen` only handles resources); write data sources by hand, modeled on `data_source_service_label.go`
   - `task build`: Build the project
   - `task test`: Run unit tests
   - `task test:acc`: Run acceptance tests (requires E2E_WAROOM_API_KEY and E2E_WAROOM_API_ENDPOINT)
   - `task fmt`: Format code
   - `task lint`: Run linter
 
-- **Code Generator**: `cmd/tfgen` - Custom tool for generating resource/data source boilerplate
+- **Code Generator**: `cmd/tfgen` - Custom tool for generating resource boilerplate
+
+- **Claude Code skills** (`.claude/skills/`)
+  - `/client-coverage`: Compare the pinned client API with the implemented resources / data sources, and file one issue per missing candidate
+  - `/implement-candidate <issue>`: Implement a candidate issue in a worktree under `.claude/worktrees/`, through acceptance tests, docs and a PR
+
+### Tracking Resource / Data Source Coverage
+
+- Each candidate resource / data source has an issue labeled `resource-candidate`, with a marker in its body: `<!-- client-coverage: kind=<resource|data_source> name=<waroom_xxx> -->`. Issues are sub-issues of the tracking issue #8.
+- To decide not to support a candidate, comment the reason and **Close as not planned**. `/client-coverage` keeps listing these with their reasons.
+- When adding a resource / data source by hand, reference its `resource-candidate` issue (`Closes #<n>`) so the coverage report stays accurate.
 
 ## Implementation Guidelines
 
@@ -88,7 +99,15 @@ Our implementation follows this documentation for implementation details, best p
 
 ### Error Handling
 
-- Handle 404 errors appropriately (e.g., remove from state in Read operations)
+- Handle 404 errors appropriately (e.g., remove from state in Read operations). API errors are returned as `*waroom.APIError` (wrapped), so check the status code with `errors.As`:
+  ```go
+  var apiErr *waroom.APIError
+  if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+      resp.State.RemoveResource(ctx)
+      return
+  }
+  ```
+  When Read has to use a `List` API (no `Get`), treat "not found in the list" as 404.
 - Use Terraform's diagnostic system for error reporting
 - Log important operations using terraform-plugin-log
 
