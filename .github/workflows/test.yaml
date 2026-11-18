@@ -40,9 +40,8 @@ jobs:
       - name: Create go.work
         working-directory: terraform-provider-waroom
         run: |
-          go work init
-          go work use . ../waroom-client-go
-          go work sync
+          go work init .
+          go work edit -replace github.com/topotal/waroom-client-go=../waroom-client-go
           cat go.work
       - name: Run unit tests
         working-directory: terraform-provider-waroom
@@ -80,9 +79,8 @@ jobs:
       - name: Create go.work
         working-directory: terraform-provider-waroom
         run: |
-          go work init
-          go work use . ../waroom-client-go
-          go work sync
+          go work init .
+          go work edit -replace github.com/topotal/waroom-client-go=../waroom-client-go
           cat go.work
       - name: Run acceptance tests
         working-directory: terraform-provider-waroom
