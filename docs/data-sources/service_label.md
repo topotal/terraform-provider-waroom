@@ -9,6 +9,8 @@ description: |-
 
 # waroom_service_label (Data Source)
 
+> **DNM**: doc-preview workflow test. This line must not be merged.
+
 Retrieves information about a Waroom service label. Use this data source to get details about an existing label within a service.
 
 This is useful when you need to reference label properties (like UUID or color) that were created outside of Terraform, or when you want to use label information from one service in another part of your configuration.

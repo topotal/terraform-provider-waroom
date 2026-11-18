@@ -8,6 +8,8 @@ description: |-
 
 # waroom_service_label (Resource)
 
+> **DNM**: doc-preview workflow test. This line must not be merged.
+
 Manages a Waroom service label. Labels are used to categorize and organize items within a Waroom service.
 
 ## Example Usage
