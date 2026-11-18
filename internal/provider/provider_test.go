@@ -1,11 +1,14 @@
 package provider
 
 import (
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/echoprovider"
+
+	"github.com/topotal/terraform-provider-waroom/internal/utils"
 )
 
 // testAccProtoV6ProviderFactories is used to instantiate a provider during acceptance testing.
@@ -24,8 +27,11 @@ var testAccProtoV6ProviderFactoriesWithEcho = map[string]func() (tfprotov6.Provi
 	"echo":   echoprovider.NewProviderServer(),
 }
 
+// testAccPreCheck validates that the environment variables required for acceptance testing are set.
 func testAccPreCheck(t *testing.T) {
-	// You can add code here to run prior to any test case execution, for example assertions
-	// about the appropriate environment variables being set are common to see in a pre-check
-	// function.
+	for _, name := range []string{utils.WaroomAPIKeyEnvName, utils.WaroomAPIEndPointEnvName} {
+		if os.Getenv(name) == "" {
+			t.Fatalf("%s must be set for acceptance tests", name)
+		}
+	}
 }
