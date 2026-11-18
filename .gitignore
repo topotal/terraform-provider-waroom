@@ -37,3 +37,6 @@ website/vendor
 go.work
 go.work.sum
 
+
+# Claude Code worktrees (used by the implement-candidate skill)
+.claude/worktrees/
