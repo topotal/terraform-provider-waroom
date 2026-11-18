@@ -122,7 +122,7 @@ func (r *ServiceLabelResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	svc := waroom.NewLabelService(r.client)
+	svc := r.client.Labels
 
 	// POST /:service/labels
 	params := waroom.CreateServiceLabelParams{
@@ -133,7 +133,7 @@ func (r *ServiceLabelResource) Create(ctx context.Context, req resource.CreateRe
 		Name:  plan.Name.ValueString(),
 		Color: plan.Color.ValueString(),
 	}
-	created, err := svc.CreateServiceLabel(ctx, wreq, params)
+	created, err := svc.Create(ctx, wreq, params)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("CreateServiceLabel, got error: %s", err))
 		//TODO: 409 conflictだった場合に terraform import 可能なヒントを提示
@@ -143,7 +143,7 @@ func (r *ServiceLabelResource) Create(ctx context.Context, req resource.CreateRe
 	var state ServiceLabelResourceModel
 	state.Id = types.StringValue(created.UUID.String())
 	state.UUID = types.StringValue(created.UUID.String())
-	state.Color = types.StringValue(created.Color.Value)
+	state.Color = types.StringValue(created.Color)
 	state.Name = types.StringValue(created.Name)
 	state.ServiceName = plan.ServiceName
 
@@ -172,7 +172,7 @@ func (r *ServiceLabelResource) Read(ctx context.Context, req resource.ReadReques
 		"color": data.Color.ValueString(),
 	})
 
-	svc := waroom.NewLabelService(r.client)
+	svc := r.client.Labels
 	params := waroom.ListServiceLabelsParams{}
 
 	if !data.ServiceName.IsNull() && !data.ServiceName.IsUnknown() {
@@ -185,7 +185,7 @@ func (r *ServiceLabelResource) Read(ctx context.Context, req resource.ReadReques
 		return
 	}
 
-	labels, err := svc.ListServiceLabels(ctx, params)
+	labels, err := svc.List(ctx, params)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("ListServiceLabels, got error: %s", err))
 		return
@@ -195,7 +195,7 @@ func (r *ServiceLabelResource) Read(ctx context.Context, req resource.ReadReques
 	for _, label := range labels {
 		if label.UUID.String() == data.UUID.ValueString() || label.Name == data.Name.ValueString() {
 			data.UUID = types.StringValue(label.UUID.String())
-			data.Color = types.StringValue(label.Color.Value)
+			data.Color = types.StringValue(label.Color)
 			data.Name = types.StringValue(label.Name)
 			found = true
 			break
@@ -222,7 +222,7 @@ func (r *ServiceLabelResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	svc := waroom.NewLabelService(r.client)
+	svc := r.client.Labels
 
 	uuid, err := uuid.Parse(state.UUID.ValueString())
 	if err != nil {
@@ -242,7 +242,7 @@ func (r *ServiceLabelResource) Update(ctx context.Context, req resource.UpdateRe
 		Name:  waroom.NewOptString(plan.Name.ValueString()),
 		Color: waroom.NewOptString(plan.Color.ValueString()),
 	}
-	created, err := svc.UpdateServiceLabel(ctx, ureq, params)
+	created, err := svc.Update(ctx, ureq, params)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Update Error",
@@ -255,7 +255,7 @@ func (r *ServiceLabelResource) Update(ctx context.Context, req resource.UpdateRe
 	var newState ServiceLabelResourceModel
 	newState.Id = types.StringValue(created.UUID.String())
 	newState.UUID = types.StringValue(created.UUID.String())
-	newState.Color = types.StringValue(created.Color.Value)
+	newState.Color = types.StringValue(created.Color)
 	newState.Name = types.StringValue(created.Name)
 	newState.ServiceName = plan.ServiceName
 
@@ -274,7 +274,7 @@ func (r *ServiceLabelResource) Delete(ctx context.Context, req resource.DeleteRe
 	var state ServiceLabelResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
-	svc := waroom.NewLabelService(r.client)
+	svc := r.client.Labels
 	uuid, err := uuid.Parse(state.UUID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("invalid UUID value", fmt.Sprintf("got error: %s", err))
@@ -285,7 +285,7 @@ func (r *ServiceLabelResource) Delete(ctx context.Context, req resource.DeleteRe
 		Name: state.ServiceName.ValueString(),
 		UUID: uuid,
 	}
-	err = svc.DeleteServiceLabel(ctx, params)
+	err = svc.Delete(ctx, params)
 	if err != nil {
 		resp.Diagnostics.AddError("Waroom Client Error", fmt.Sprintf("DeleteServiceLabel, got error: %s", err))
 		return

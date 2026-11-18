@@ -120,7 +120,7 @@ func (d *ServiceLabelSource) Read(ctx context.Context, req datasource.ReadReques
 		"color": data.Color.ValueString(),
 	})
 
-	svc := waroom.NewLabelService(d.client)
+	svc := d.client.Labels
 	params := waroom.ListServiceLabelsParams{}
 
 	if !data.ServiceName.IsNull() && !data.ServiceName.IsUnknown() {
@@ -133,7 +133,7 @@ func (d *ServiceLabelSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	labels, err := svc.ListServiceLabels(ctx, params)
+	labels, err := svc.List(ctx, params)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("ListServiceLabels, got error: %s", err))
 		return
@@ -143,8 +143,8 @@ func (d *ServiceLabelSource) Read(ctx context.Context, req datasource.ReadReques
 		// API response to model
 		if label.UUID.String() == data.UUID.ValueString() || label.Name == data.Name.ValueString() {
 			data.UUID = types.StringValue(label.UUID.String())
-			data.Color = types.StringValue(label.Color.Value)
-			data.CreatedAt = types.StringValue(label.CreatedAt.Value.String())
+			data.Color = types.StringValue(label.Color)
+			data.CreatedAt = types.StringValue(label.CreatedAt.String())
 			data.Name = types.StringValue(label.Name)
 
 			// data.UpdateAt = types.StringValue(label.UpdatedAt.Value.String())
