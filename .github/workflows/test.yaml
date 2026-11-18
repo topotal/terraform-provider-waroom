@@ -30,7 +30,7 @@ jobs:
           repository: topotal/waroom-client-go
           path: waroom-client-go
           ssh-key: ${{ secrets.WAROOM_CLIENT_GO_DEPLOY_KEY }}
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
         with:
           go-version-file: terraform-provider-waroom/go.mod
           cache: true
@@ -66,7 +66,7 @@ jobs:
           repository: topotal/waroom-client-go
           path: waroom-client-go
           ssh-key: ${{ secrets.WAROOM_CLIENT_GO_DEPLOY_KEY }}
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
         with:
           go-version-file: terraform-provider-waroom/go.mod
           cache: true
