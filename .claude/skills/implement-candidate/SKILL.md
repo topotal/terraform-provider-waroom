@@ -38,13 +38,19 @@ gh issue view $issue --json number,title,state,labels,body,url
 
 ### Waroom connectivity
 
-Acceptance tests (step 7) need a running Waroom that the API key can access. Check it up front so a missing server is found before the implementation, not at the end:
+Acceptance tests (step 7) need a running Waroom that the API key can access. Check it up front so a missing server is found before the implementation, not at the end.
+
+The `E2E_WAROOM_*` variables live in `.env.e2e` in the **main checkout** (per developer, gitignored, so not present in the worktree; template: `.env.e2e.example`). Values may be `op://` references, so always load it through the 1Password CLI:
 
 ```sh
-GOWORK=off go -C "${CLAUDE_SKILL_DIR}/scripts/ping" run .
+ENV_E2E_FILE="$(git rev-parse --path-format=absolute --git-common-dir)/../.env.e2e"
+test -f "$ENV_E2E_FILE" || echo "missing: $ENV_E2E_FILE"
+op run --env-file "$ENV_E2E_FILE" -- env GOWORK=off go -C "${CLAUDE_SKILL_DIR}/scripts/ping" run .
 ```
 
-It calls the read-only list-users API once with `E2E_WAROOM_API_ENDPOINT` / `E2E_WAROOM_API_KEY`, the same variables `task test:acc` uses. `E2E_WAROOM_API_ENDPOINT` is the host only (e.g. `http://localhost:3000`); the client adds `/api/v0`.
+If the file is missing, ask the user to copy `.env.e2e.example` to `.env.e2e` in the main checkout and fill it in; never ask for or write the values yourself. If `op` fails to sign in, ask the user to unlock 1Password.
+
+The ping calls the read-only list-users API once with `E2E_WAROOM_API_ENDPOINT` / `E2E_WAROOM_API_KEY`, the same variables `task test:acc` uses. `E2E_WAROOM_API_ENDPOINT` is the host only (e.g. `https://api.staging.waroom.com`); the client adds `/api/v0`.
 
 - `OK` → ask once, now, whether acceptance tests may be run against this endpoint (they create and delete real objects). Ask here rather than in step 7 so a `/goal` run is not blocked midway. Then continue.
 - `NG` → show the message and ask the user to either start Waroom / fix the env vars and rerun the check, or continue without running acceptance tests (they are still written in step 7). Do not start Waroom yourself.
@@ -56,10 +62,10 @@ Never print the API key.
 Before implementing, print a `/goal` command tailored to this issue for the user to paste (a skill cannot set a goal itself). The goal covers steps 2–7 only, ending when the acceptance tests pass; examples, docs, and the PR (steps 8–10) come after the goal is met. Keep it verifiable from the transcript:
 
 ```
-/goal <kind> <name> from issue #<issue> is implemented and its acceptance tests pass: internal/provider/<kind>_<snake>.go and internal/provider/<kind>_<snake>_test.go exist, it is registered in provider.go, `task build`, `task test` and `task lint` have each been shown exiting 0 after the last code change, and `task test:acc -- -run 'TestAcc<Pascal>' ./internal/provider/` has been shown passing (not skipped) after the last code change. Stop after 40 turns.
+/goal <kind> <name> from issue #<issue> is implemented and its acceptance tests pass: internal/provider/<kind>_<snake>.go and internal/provider/<kind>_<snake>_test.go exist, it is registered in provider.go, `task build`, `task test` and `task lint` have each been shown exiting 0 after the last code change, and `task test:acc:op -- -run 'TestAcc<Pascal>'` has been shown passing (not skipped) after the last code change. Stop after 40 turns.
 ```
 
-Print it only when the connectivity check was `OK` and the user agreed to run acceptance tests (step 0). Otherwise the goal cannot be met; print the same goal without the `task test:acc` clause and say the acceptance tests will be written but not run.
+Print it only when the connectivity check was `OK` and the user agreed to run acceptance tests (step 0). Otherwise the goal cannot be met; print the same goal without the `task test:acc:op` clause and say the acceptance tests will be written but not run.
 
 Then continue without waiting.
 
@@ -139,14 +145,16 @@ Create `internal/provider/<kind>_<snake>_test.go` using `github.com/hashicorp/te
   3. Update every updatable attribute and check it (skip if the API has no Update).
   4. Destroy is implicit; add `CheckDestroy` that calls the client and expects 404 / absence.
 - Data source test: create the object with the matching resource in the same config if that resource exists; otherwise read an existing object provided via an env var.
-- Prerequisites that cannot be created through the API (e.g. a Waroom service, since there is no create-service API) come from env vars named `E2E_WAROOM_<THING>` (e.g. `E2E_WAROOM_SERVICE_NAME`). Read them in the test and `t.Skip` with a clear message when unset. Add each new variable to the `test:acc` task in `Taskfile.yaml` (mapped like `E2E_WAROOM_API_KEY`) and to DEVELOPMENT.md.
+- Prerequisites that cannot be created through the API (e.g. a Waroom service, since there is no create-service API) come from env vars named `E2E_WAROOM_<THING>` (e.g. `E2E_WAROOM_SERVICE_NAME`). Read them in the test and `t.Skip` with a clear message when unset. Add each new variable, with a comment, to `.env.e2e.example`, and tell the user to add it to their own `.env.e2e`.
 - Configs are built with `fmt.Sprintf` helpers named `testAcc<Pascal><Kind>Config(...)`.
 
 Running them creates real objects in Waroom. Run only if the user agreed in step 0, and rerun the connectivity check first (it must be `OK`):
 
 ```sh
-task test:acc -- -run 'TestAcc<Pascal>' ./internal/provider/
+task test:acc:op -- -run 'TestAcc<Pascal>'
 ```
+
+`test:acc:op` loads `.env.e2e` from the main checkout through `op run`, which also masks resolved secrets in the output.
 
 If the check is `NG` or the user declines, say the acceptance tests were written but not run.
 

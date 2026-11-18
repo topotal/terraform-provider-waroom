@@ -65,6 +65,7 @@ Our implementation follows this documentation for implementation details, best p
   - `task build`: Build the project
   - `task test`: Run unit tests
   - `task test:acc`: Run acceptance tests (requires E2E_WAROOM_API_KEY and E2E_WAROOM_API_ENDPOINT)
+  - `task test:acc:op`: Run acceptance tests with the variables from the per-developer `.env.e2e` (template: `.env.e2e.example`), resolved by the 1Password CLI. Never ask for or print these values
   - `task fmt`: Format code
   - `task lint`: Run linter
 

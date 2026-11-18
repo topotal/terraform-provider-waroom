@@ -68,6 +68,19 @@ tasks:
       # NOTE: In E2E testing, always override WAROOM_API_KEY and WAROOM_API_ENDPOINT with the E2E_ environment variable.
       - WAROOM_API_KEY={{.E2E_WAROOM_API_KEY}} WAROOM_API_ENDPOINT={{.E2E_WAROOM_API_ENDPOINT}} TF_ACC=1 go test -timeout=120m {{.CLI_ARGS}} ./...
 
+  test:acc:op:
+    desc: "Run acceptance tests with the E2E_ variables from .env.e2e, resolved by the 1Password CLI (see .env.e2e.example)"
+    vars:
+      # .env.e2e is gitignored, so worktrees read it from the main checkout.
+      ENV_FILE: { sh: 'echo "${ENV_E2E_FILE:-$(git rev-parse --path-format=absolute --git-common-dir)/../.env.e2e}"' }
+    preconditions:
+      - sh: 'command -v op >/dev/null'
+        msg: '1Password CLI (op) is required'
+      - sh: 'test -f "{{.ENV_FILE}}"'
+        msg: '{{.ENV_FILE}} not found. Copy .env.e2e.example to .env.e2e and fill it in.'
+    cmds:
+      - op run --env-file "{{.ENV_FILE}}" -- task test:acc -- {{.CLI_ARGS}}
+
   fmt:
     desc: "Format code"
     cmds:
