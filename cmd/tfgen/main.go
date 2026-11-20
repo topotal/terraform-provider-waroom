@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	kind       = flag.String("kind", "resource", "resource | data_source (今はresourceのみ対応)")
+	kind       = flag.String("kind", "resource", "resource | data_source")
 	name       = flag.String("name", "", "スネークケースのリソース名 (例: service_label)")
 	pkg        = flag.String("pkg", "provider", "出力先のGoパッケージ名（ディレクトリ名と一致させる）")
 	outDir     = flag.String("out", "", "出力ディレクトリ（未指定なら ./<pkg>）")
@@ -26,14 +26,24 @@ var (
 //go:embed resource.tmpl
 var resourceTmpl string
 
+//go:embed data_source.tmpl
+var dataSourceTmpl string
+
+// -kind ごとのテンプレート。
+var templates = map[string]string{
+	"resource":    resourceTmpl,
+	"data_source": dataSourceTmpl,
+}
+
 func main() {
 	flag.Parse()
 
 	if *name == "" {
 		exitf("missing -name (snake_case e.g. service_label)")
 	}
-	if *kind != "resource" {
-		exitf("unsupported -kind: %s (resourceのみ)", *kind)
+	tmpl, ok := templates[*kind]
+	if !ok {
+		exitf("unsupported -kind: %s (resource | data_source)", *kind)
 	}
 
 	snake := *name
@@ -48,7 +58,7 @@ func main() {
 		exitf("mkdir: %v", err)
 	}
 
-	filename := filepath.Join(out, fmt.Sprintf("%s_%s.go", *kind, snake)) // resource_service_label.go
+	filename := filepath.Join(out, fmt.Sprintf("%s_%s.go", *kind, snake)) // resource_service_label.go / data_source_service_label.go
 	if exists(filename) {
 		exitf("file already exists: %s", filename)
 	}
@@ -62,7 +72,7 @@ func main() {
 		"ClientType":   *clientType, // Client
 	}
 
-	tpl, err := template.New("resource").Parse(resourceTmpl)
+	tpl, err := template.New(*kind).Parse(tmpl)
 	if err != nil {
 		exitf("template parse: %v", err)
 	}

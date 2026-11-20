@@ -141,7 +141,7 @@ func (p *WaroomProvider) EphemeralResources(ctx context.Context) []func() epheme
 
 func (p *WaroomProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewServiceLabelSource,
+		NewServiceLabelDataSource,
 	}
 }
 

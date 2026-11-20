@@ -85,7 +85,7 @@ Then continue without waiting.
 ## 3. Scaffold
 
 - resource: `task gen:r name=<snake>` (the template has no import support; add it in step 4).
-- data_source: `cmd/tfgen` supports resources only. Create `internal/provider/data_source_<snake>.go` by hand, modeled on `data_source_service_label.go` (type `<Pascal>Source`, constructor `New<Pascal>Source`).
+- data_source: `task gen:d name=<snake>` (type `<Pascal>DataSource`, constructor `New<Pascal>DataSource`).
 
 Register the constructor in `Resources()` / `DataSources()` in `internal/provider/provider.go`.
 
