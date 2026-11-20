@@ -185,26 +185,26 @@ Do this only when `task build` / `task test` / `task lint` all pass. If any stil
 
   Closes #<issue>
   ```
+  Add the `Co-Authored-By` trailer if the session asks for one, but never a `Claude-Session:` trailer or any session URL.
 - `git push -u origin <branch>`
 - Open the PR against `main`:
   ```sh
   gh pr create --base main --title 'feat: add <name> <resource|data source>' --body-file <scratchpad>/pr-<snake>.md
   ```
   Open it as a draft (`--draft`) when the acceptance tests were not run or did not pass; otherwise ready for review.
-- PR body:
+- PR body: keep it short. Reviewers read the diff; the body only says what the diff cannot.
   ```markdown
   Closes #<issue>
 
   ## Summary
-  <schema summary and how the implementation notes were handled>
-
-  ## Testing
-  - task build / test / lint: pass
-  - Acceptance tests: <ran against <endpoint host> and passed | not run: <reason>>
+  <one or two lines: what the resource / data source manages. Add a line only for non-obvious choices (e.g. how an implementation note was decided)>
 
   ## Notes
-  <new E2E_WAROOM_* env vars, open questions for reviewers>
+  <only what a reviewer must pay attention to: the acceptance tests were not run or failed (and why), new E2E_WAROOM_* env vars, open questions, things that could not be tested>
   ```
-  End the body with the attribution lines the session asks for, if any.
+  - Omit `## Notes` entirely when there is nothing to say.
+  - Do not write that `task build` / `task test` / `task lint` or the acceptance tests pass, and do not list the tests, examples or docs that were added; passing is the precondition for opening the PR as ready for review.
+  - Write the body in English.
+  End the body with the "Generated with Claude Code" attribution line if the session asks for one, but never include the session URL / session ID.
 
 Finally, give the user the PR URL and the worktree path. Leave the issue's checklist and state to the PR (it closes the issue on merge). Keep the worktree for review follow-ups; tell the user it can be removed after merge with `git worktree remove .claude/worktrees/<kind>-<snake>`.
