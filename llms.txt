@@ -77,7 +77,7 @@ Our implementation follows this documentation for implementation details, best p
 
 ### Tracking Resource / Data Source Coverage
 
-- Each candidate resource / data source has an issue labeled `resource-candidate`, with a marker in its body: `<!-- client-coverage: kind=<resource|data_source> name=<waroom_xxx> -->`. Issues are sub-issues of the tracking issue #8.
+- Each candidate resource / data source has an issue labeled `resource-candidate`, with a marker in its body: `<!-- client-coverage: kind=<resource|data_source> name=<waroom_xxx> -->`. Issues are sub-issues of the tracking issue #38.
 - To decide not to support a candidate, comment the reason and **Close as not planned**. `/client-coverage` keeps listing these with their reasons.
 - When adding a resource / data source by hand, reference its `resource-candidate` issue (`Closes #<n>`) so the coverage report stays accurate.
 
