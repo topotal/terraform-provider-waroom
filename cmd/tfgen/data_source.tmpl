@@ -6,12 +6,15 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 
-	"{{.ClientImport}}"
+	{{- /* client import */}}
+	{{- /* goimportsをかけると整う */}}
+	waroom "{{.ClientImport}}"
 )
 
 var (
-	_ datasource.DataSource = &{{.Pascal}}DataSource{}
+	_ datasource.DataSource              = &{{.Pascal}}DataSource{}
 	_ datasource.DataSourceWithConfigure = &{{.Pascal}}DataSource{}
 )
 
@@ -25,8 +28,8 @@ type {{.Pascal}}DataSource struct {
 	client *waroom.{{.ClientType}}
 }
 
-// {{.Pascal}}SourceModel describes the data source data model.
-type {{.Pascal}}SourceModel struct {
+// {{.Pascal}}DataSourceModel describes the data source data model.
+type {{.Pascal}}DataSourceModel struct {
 	// example attribute
 	// UUID        types.String `tfsdk:"uuid"`
 }
@@ -38,6 +41,7 @@ func (d *{{.Pascal}}DataSource) Metadata(_ context.Context, req datasource.Metad
 
 // Configure adds the provider configured client to the data source.
 func (d *{{.Pascal}}DataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	// Prevent panic if the provider has not been configured.
 	if req.ProviderData == nil {
 		return
 	}
@@ -50,18 +54,33 @@ func (d *{{.Pascal}}DataSource) Configure(_ context.Context, req datasource.Conf
 		)
 		return
 	}
-
 	d.client = client
 }
 
 // Schema defines the schema for the data source.
 func (d *{{.Pascal}}DataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		// TODO: describe the data source ("Retrieves information about a Waroom ...").
+		MarkdownDescription: "",
 		// TODO: define attributes.
 	}
 }
 
 // Read refreshes Terraform state with the latest data.
 func (d *{{.Pascal}}DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	// TODO: implement
+	// Read Terraform configuration data into the model
+	var data {{.Pascal}}DataSourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// TODO: look up the object with d.client and copy it into data.
+	// Unlike a resource, a data source must not drop a missing object silently:
+	// on 404 (or no match in a List response) report it with resp.Diagnostics.AddError.
+
+	tflog.Info(ctx, "read {{.Snake}} data source")
+
+	// Save data into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

@@ -24,19 +24,19 @@ import (
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ datasource.DataSource = &ServiceLabelSource{}
+var _ datasource.DataSource = &ServiceLabelDataSource{}
 
-func NewServiceLabelSource() datasource.DataSource {
-	return &ServiceLabelSource{}
+func NewServiceLabelDataSource() datasource.DataSource {
+	return &ServiceLabelDataSource{}
 }
 
-// ServiceLabelSource defines the data source implementation.
-type ServiceLabelSource struct {
+// ServiceLabelDataSource defines the data source implementation.
+type ServiceLabelDataSource struct {
 	client *waroom.Client
 }
 
-// ServiceLabelSourceModel describes the data source data model.
-type ServiceLabelSourceModel struct {
+// ServiceLabelDataSourceModel describes the data source data model.
+type ServiceLabelDataSourceModel struct {
 	ServiceName types.String `tfsdk:"service_name"`
 	UUID        types.String `tfsdk:"uuid"`
 	Name        types.String `tfsdk:"name"`
@@ -45,11 +45,11 @@ type ServiceLabelSourceModel struct {
 	UpdatedAt   types.String `tfsdk:"updated_at"`
 }
 
-func (d *ServiceLabelSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+func (d *ServiceLabelDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_service_label"
 }
 
-func (d *ServiceLabelSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (d *ServiceLabelDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Retrieves information about a Waroom service label. Use this data source to get details about an existing label within a service.\n\n" +
 			"This is useful when you need to reference label properties (like UUID or color) that were created outside of Terraform, " +
@@ -84,7 +84,7 @@ func (d *ServiceLabelSource) Schema(ctx context.Context, req datasource.SchemaRe
 	}
 }
 
-func (d *ServiceLabelSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+func (d *ServiceLabelDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
 	// Prevent panic if the provider has not been configured.
 	if req.ProviderData == nil {
 		return
@@ -95,7 +95,7 @@ func (d *ServiceLabelSource) Configure(ctx context.Context, req datasource.Confi
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Data Source Configure Type",
-			fmt.Sprintf("Expected *http.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 
 		return
@@ -104,10 +104,10 @@ func (d *ServiceLabelSource) Configure(ctx context.Context, req datasource.Confi
 	d.client = client
 }
 
-func (d *ServiceLabelSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+func (d *ServiceLabelDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 
 	// Read Terraform configuration data into the model
-	var data ServiceLabelSourceModel
+	var data ServiceLabelDataSourceModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
 	if resp.Diagnostics.HasError() {

@@ -59,9 +59,9 @@ Our implementation follows this documentation for implementation details, best p
 ### Development Tools
 
 - **Task Runner**: Uses [Taskfile](https://taskfile.dev/) for common operations
-  - `task gen name=<name>`: Generate new resource scaffolding
+  - `task gen name=<name> [kind=resource|data_source]`: Generate new resource / data source scaffolding
   - `task gen:r name=<name>`: Generate resource (shortcut)
-  - `task gen:d name=<name>`: Not supported yet (`cmd/tfgen` only handles resources); write data sources by hand, modeled on `data_source_service_label.go`
+  - `task gen:d name=<name>`: Generate data source (shortcut)
   - `task build`: Build the project
   - `task test`: Run unit tests
   - `task test:acc`: Run acceptance tests (requires E2E_WAROOM_API_KEY and E2E_WAROOM_API_ENDPOINT)
@@ -69,7 +69,7 @@ Our implementation follows this documentation for implementation details, best p
   - `task fmt`: Format code
   - `task lint`: Run linter
 
-- **Code Generator**: `cmd/tfgen` - Custom tool for generating resource boilerplate
+- **Code Generator**: `cmd/tfgen` - Custom tool for generating resource / data source boilerplate
 
 - **Claude Code skills** (`.claude/skills/`)
   - `/client-coverage`: Compare the pinned client API with the implemented resources / data sources, and file one issue per missing candidate
