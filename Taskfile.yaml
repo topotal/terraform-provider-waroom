@@ -61,6 +61,7 @@ tasks:
 
   playground:
     desc: "Install the provider and set up temp/playground to try it with terraform plan/apply"
+    silent: true # Print only the instructions, not the generated files
     deps: [install]
     vars:
       DIR: "{{.ROOT_DIR}}/temp/playground"
@@ -103,8 +104,13 @@ tasks:
         EOF
       - |
         echo "Playground: {{.DIR}}"
-        echo "  cd {{.DIR}} && direnv allow   # or export the variables in .envrc yourself"
-        echo "  terraform plan                # no terraform init needed with dev_overrides"
+        echo ""
+        echo "  cd {{.DIR}}"
+        echo "  direnv allow     # first time only"
+        echo "  terraform plan   # run after direnv has loaded .envrc; no terraform init needed"
+        echo ""
+        echo "direnv loads .envrc when the prompt returns, so run terraform as a separate command"
+        echo "(or use 'direnv exec . terraform plan')."
 
   test:
     desc: "Run unit tests"
