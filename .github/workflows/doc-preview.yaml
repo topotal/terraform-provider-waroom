@@ -16,7 +16,7 @@ concurrency:
 env:
   # Screenshot script (scripts/preview-docs.js) and its Playwright deps live in this repo.
   PREVIEW_ACTION_REPO: Sho2010/terraform-docs-preview-action
-  PREVIEW_ACTION_REF: dee828b8fa493ac8f68e0fc0a8876b0f0db6c614
+  PREVIEW_ACTION_REF: 113eb8ce9f9a97fc36a2d7a5204aeb185818f3aa
   COMMENT_MARKER: '<!-- terraform-docs-preview -->'
 
 jobs:
