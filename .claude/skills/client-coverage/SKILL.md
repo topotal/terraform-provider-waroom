@@ -70,7 +70,7 @@ gh issue view <number> --json closedAt,comments \
 - **Reason**: summarize the last comment up to the close time in one line. If there is no comment, write "No reason given" (a not-planned close without a reason should be revisited)
 - **Reconsider flag**: if the version in the issue body's `client:` line differs from the currently pinned version, and the relevant Service's methods were added or removed in between, mark it "Reconsider". Get both versions' sources with `GOWORK=off go mod download -json <mod>@<ver>` and compare
 
-Also confirm that the parent tracking issue (currently #8, titled 「実装予定Resource/Data Source」) is open. If it cannot be found or is closed, ask the user.
+Also confirm that the parent tracking issue (currently #38, titled 「実装予定Resource/Data Source」) is open. If it cannot be found or is closed, ask the user.
 
 ### 4. Report
 
