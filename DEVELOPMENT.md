@@ -63,6 +63,7 @@ go work init . ./tools ../waroom-client-go
 
 - `go.work` and `go.work.sum` are listed in `.gitignore`. They are local to each developer and must not be committed.
 - Include `./tools` as well. Otherwise `task gen-docs`, which runs in `tools/`, fails because `tools/` is not part of the workspace.
+- Tasks only use the checkout's own `go.work`. In a worktree without one (e.g. under `.claude/worktrees/`), they build against the version pinned in `go.mod`.
 - Before opening a pull request, release the change in `waroom-client-go` and bump the pinned version in `go.mod`. CI builds against the version in `go.mod`, not your local checkout.
 
 ## Adding a Resource or Data Source
