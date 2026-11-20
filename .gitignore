@@ -43,3 +43,6 @@ go.work.sum
 
 # Per-developer acceptance test environment (see .env.e2e.example)
 .env.e2e
+
+# Per-developer scratch space, including the playground created by `task playground`
+/temp/
