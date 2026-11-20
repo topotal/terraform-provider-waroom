@@ -43,6 +43,20 @@ provider_installation {
 }
 ```
 
+### Playground
+
+`task playground` installs the provider and sets up `temp/playground/` (gitignored) to try it with `terraform plan` / `apply` without touching `~/.terraformrc`:
+
+```shell
+task playground
+cd temp/playground
+direnv allow      # or export the variables in .envrc yourself
+terraform plan    # no terraform init needed with dev_overrides
+```
+
+- `dev.tfrc` points the development override at the directory `go install` writes to, and `.envrc` sets `TF_CLI_CONFIG_FILE` to it.
+- `.envrc` targets a local Waroom (`http://localhost:3001`) and uses `WAROOM_LOCAL_API_KEY` as the API key if it is set. `.envrc` and `main.tf` are created only once, so edit them freely; rerun `task playground` after changing the provider code.
+
 ## Using a Local `waroom-client-go`
 
 To develop against unreleased changes in `waroom-client-go`, override the pinned version with a [Go workspace](https://go.dev/doc/tutorial/workspaces).
