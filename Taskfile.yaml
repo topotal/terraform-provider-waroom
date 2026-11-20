@@ -6,6 +6,12 @@ vars:
   CLIENT_PKG: github.com/topotal/waroom-client-go/waroom
   CLIENT_TYPE: Client
 
+env:
+  # Use only this checkout's go.work. Worktrees under .claude/worktrees/ would otherwise pick up
+  # the parent checkout's go.work and fail with "main module does not contain package".
+  GOWORK:
+    sh: test -f "{{.ROOT_DIR}}/go.work" && echo "{{.ROOT_DIR}}/go.work" || echo off
+
 tasks:
   gen:
     desc: "Generate resource/data_source. Usage: task gen name=service_label [kind=resource]"
