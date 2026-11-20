@@ -50,9 +50,11 @@ provider_installation {
 ```shell
 task playground
 cd temp/playground
-direnv allow      # or export the variables in .envrc yourself
+direnv allow      # first time only; or export the variables in .envrc yourself
 terraform plan    # no terraform init needed with dev_overrides
 ```
+
+direnv loads `.envrc` when the prompt returns, so run `terraform` as a separate command, not chained after `direnv allow` with `&&` (or use `direnv exec . terraform plan`). Otherwise `TF_CLI_CONFIG_FILE` is not set yet and Terraform asks for `terraform init`.
 
 - `dev.tfrc` points the development override at the directory `go install` writes to, and `.envrc` sets `TF_CLI_CONFIG_FILE` to it.
 - `.envrc` targets a local Waroom (`http://localhost:3001`) and uses `LOCAL_WAROOM_API_KEY` as the API key if it is set. `.envrc` and `main.tf` are created only once, so edit them freely; rerun `task playground` after changing the provider code.
