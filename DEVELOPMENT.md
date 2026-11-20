@@ -55,7 +55,7 @@ terraform plan    # no terraform init needed with dev_overrides
 ```
 
 - `dev.tfrc` points the development override at the directory `go install` writes to, and `.envrc` sets `TF_CLI_CONFIG_FILE` to it.
-- `.envrc` targets a local Waroom (`http://localhost:3001`) and uses `WAROOM_LOCAL_API_KEY` as the API key if it is set. `.envrc` and `main.tf` are created only once, so edit them freely; rerun `task playground` after changing the provider code.
+- `.envrc` targets a local Waroom (`http://localhost:3001`) and uses `LOCAL_WAROOM_API_KEY` as the API key if it is set. `.envrc` and `main.tf` are created only once, so edit them freely; rerun `task playground` after changing the provider code.
 
 ## Using a Local `waroom-client-go`
 

@@ -85,8 +85,8 @@ tasks:
         source_up_if_exists
         export TF_CLI_CONFIG_FILE="$PWD/dev.tfrc"
         export WAROOM_API_ENDPOINT="http://localhost:3001"
-        # Use WAROOM_LOCAL_API_KEY for the local Waroom if it is set (e.g. in the repository's .envrc).
-        export WAROOM_API_KEY="${WAROOM_LOCAL_API_KEY:-$WAROOM_API_KEY}"
+        # Use LOCAL_WAROOM_API_KEY for the local Waroom if it is set (e.g. in the repository's .envrc; same name as waroomctl's local context).
+        export WAROOM_API_KEY="${LOCAL_WAROOM_API_KEY:-$WAROOM_API_KEY}"
         EOF
       - |
         test -f "{{.DIR}}/main.tf" || cat > "{{.DIR}}/main.tf" <<'EOF'
