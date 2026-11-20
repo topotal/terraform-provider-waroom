@@ -129,6 +129,8 @@ github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWD
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
 github.com/topotal/waroom-client-go v0.0.1-alpha h1:xdvXI2SN+qzL3RgVszs7dYSlsoAibRCYzG01JrhS7wg=
 github.com/topotal/waroom-client-go v0.0.1-alpha/go.mod h1:GsKRyO8HiUYPOMMc2Xyhl7wDQ6AqKgAQobKp+Pmu1yQ=
+github.com/topotal/waroom-client-go v0.0.4 h1:V39K6uFZX+aSLFqx0n2cg4P5fb0vohmDciIk0WwDyfU=
+github.com/topotal/waroom-client-go v0.0.4/go.mod h1:GsKRyO8HiUYPOMMc2Xyhl7wDQ6AqKgAQobKp+Pmu1yQ=
 github.com/vmihailenco/msgpack v4.0.4+incompatible h1:dSLoQfGFAo3F6OoNhwUmLwVgaUXK79GlxNBwueZn0xI=
 github.com/vmihailenco/msgpack v4.0.4+incompatible/go.mod h1:fy3FlTQTDXWkZ7Bh6AcGMlsjHatGryHQYUTf1ShIgkk=
 github.com/vmihailenco/msgpack/v5 v5.4.1 h1:cQriyiUvjTwOHg8QZaPihLWeRAAVoCpE00IUPn0Bjt8=
