@@ -37,7 +37,8 @@ jobs:
   generate:
     needs: detect-changes
     if: needs.detect-changes.outputs.docs == 'true'
-    runs-on: ubuntu-latest
+    # playwright-core in the preview action's lockfile (1.57.0) does not support ubuntu26.04 (ubuntu-latest).
+    runs-on: ubuntu-24.04
     # This job runs third-party code (npm deps, Playwright), so keep the token and checkout minimal.
     permissions:
       contents: read
