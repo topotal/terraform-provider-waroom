@@ -144,6 +144,7 @@ func (p *WaroomProvider) DataSources(ctx context.Context) []func() datasource.Da
 	return []func() datasource.DataSource{
 		NewServiceDataSource,
 		NewServiceLabelDataSource,
+		NewPostmortemTemplateDataSource,
 	}
 }
 
