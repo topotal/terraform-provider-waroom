@@ -159,6 +159,7 @@ func (p *WaroomProvider) DataSources(ctx context.Context) []func() datasource.Da
 		NewOnCallEscalationPolicyDataSource,
 		NewRunbookDataSource,
 		NewServiceWebhookConfigurationDataSource,
+		NewUserDataSource,
 	}
 }
 
