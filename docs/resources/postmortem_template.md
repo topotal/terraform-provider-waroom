@@ -60,6 +60,16 @@ resource "waroom_postmortem_template" "from_file" {
 
 Import is supported using the following syntax:
 
+In Terraform v1.5.0 and later, the [`import` block](https://developer.hashicorp.com/terraform/language/import) can be used with the `id` attribute, for example:
+
+```terraform
+# Postmortem templates can be imported by specifying the template UUID
+import {
+  to = waroom_postmortem_template.inline
+  id = "123e4567-e89b-12d3-a456-426614174000"
+}
+```
+
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
