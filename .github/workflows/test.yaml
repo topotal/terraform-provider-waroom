@@ -53,6 +53,7 @@ jobs:
           restore-keys: |
             go-build-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}-
             go-build-${{ runner.os }}-
+      - run: go vet ./...
       - name: Run unit tests
         run: go test -timeout=300s -parallel=10 -cover -v ./...
       - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
