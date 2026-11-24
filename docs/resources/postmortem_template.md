@@ -13,9 +13,27 @@ Manages a Waroom postmortem template. Postmortem templates provide the initial c
 ## Example Usage
 
 ```terraform
-# postmortem.md is a Markdown file placed next to this configuration.
-resource "waroom_postmortem_template" "example" {
+# Write the Markdown content inline with a heredoc.
+resource "waroom_postmortem_template" "inline" {
   title = "Standard postmortem"
+  blob  = <<-EOT
+    # Postmortem
+
+    ## Summary
+
+    ## Impact
+
+    ## Timeline
+
+    ## Root cause
+
+    ## Action items
+  EOT
+}
+
+# Or read it from a Markdown file placed next to this configuration.
+resource "waroom_postmortem_template" "from_file" {
+  title = "Security incident postmortem"
   blob  = file("${path.module}/postmortem.md")
 }
 ```
@@ -46,5 +64,5 @@ The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/c
 
 ```shell
 # Postmortem templates can be imported by specifying the template UUID
-terraform import waroom_postmortem_template.example 123e4567-e89b-12d3-a456-426614174000
+terraform import waroom_postmortem_template.inline 123e4567-e89b-12d3-a456-426614174000
 ```
