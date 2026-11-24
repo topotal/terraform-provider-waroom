@@ -133,6 +133,9 @@ func (p *WaroomProvider) Resources(ctx context.Context) []func() resource.Resour
 	return []func() resource.Resource{
 		NewServiceResource,
 		NewServiceLabelResource,
+		NewServiceArchitectureContextResource,
+		NewPostmortemTemplateResource,
+		NewServiceIncidentDocumentTemplateResource,
 		NewIncidentDescriptionTemplateResource,
 	}
 }
@@ -149,6 +152,7 @@ func (p *WaroomProvider) DataSources(ctx context.Context) []func() datasource.Da
 		NewPostmortemTemplateDataSource,
 		NewOnCallTriggerDataSource,
 		NewOnCallEscalationPolicyDataSource,
+		NewRunbookDataSource,
 	}
 }
 

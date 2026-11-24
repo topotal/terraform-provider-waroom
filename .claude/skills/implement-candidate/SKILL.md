@@ -160,7 +160,8 @@ If the check is `NG` or the user declines, say the acceptance tests were written
 
 ## 8. Examples and docs
 
-- `examples/resources/<name>/resource.tf` (+ `import.sh` for resources), or `examples/data-sources/<name>/data-source.tf`, in the style of the `waroom_service_label` examples.
+- `examples/resources/<name>/resource.tf` (+ `import-by-string-id.tf` with an `import` block and `import.sh` with the `terraform import` command, for resources), or `examples/data-sources/<name>/data-source.tf`, in the style of the `waroom_service_label` examples.
+- For an attribute holding Markdown (e.g. a template `blob`), show both a heredoc (`<<-EOT`) and `file("${path.module}/<name>.md")` with the `.md` file next to the example. When the resource is a singleton and cannot be declared twice, put the second form in a comment.
 - `task gen-docs` to regenerate `docs/` (also runs `terraform fmt` on examples). Check the generated page reads well.
 
 ## 9. Report
