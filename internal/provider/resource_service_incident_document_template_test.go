@@ -5,21 +5,31 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/topotal/waroom-client-go/waroom"
 )
 
-// The service is created in the same config so that the template of an existing service is never overwritten.
-// The Waroom API cannot delete a service, so the service remains in Waroom.
+// The test overwrites and clears the template of two services, so it uses services created by acceptance tests
+// (named "tf-acc-*") rather than a real one such as E2E_WAROOM_SERVICE_NAME.
 func TestAccServiceIncidentDocumentTemplateResource(t *testing.T) {
-	serviceName := acctest.RandomWithPrefix("tf-acc")
+	if os.Getenv(resource.EnvTfAcc) == "" {
+		t.Skipf("Acceptance tests skipped unless env '%s' set", resource.EnvTfAcc)
+	}
+	testAccPreCheck(t)
+
+	services := testAccServiceIncidentDocumentTemplateServices(t, 2)
+	serviceA, serviceB := services[0], services[1]
 	blob := "# Incident\n\n## Impact\n"
 	updatedBlob := "# Incident\n\n## Impact\n\n## Timeline\n"
 
@@ -30,12 +40,18 @@ func TestAccServiceIncidentDocumentTemplateResource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckServiceIncidentDocumentTemplateDestroy(t),
 		Steps: []resource.TestStep{
+			// A whitespace-only blob is rejected at plan time.
+			// This step comes first because the post-test destroy uses the last step's config.
+			{
+				Config:      testAccServiceIncidentDocumentTemplateResourceConfig(serviceA, serviceB, "a", " \n"),
+				ExpectError: regexp.MustCompile(`must contain a non-whitespace character`),
+			},
 			// Create and Read
 			{
-				Config: testAccServiceIncidentDocumentTemplateResourceConfig(serviceName, blob),
+				Config: testAccServiceIncidentDocumentTemplateResourceConfig(serviceA, serviceB, "a", blob),
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(name, tfjsonpath.New("id"), knownvalue.StringExact(serviceName)),
-					statecheck.ExpectKnownValue(name, tfjsonpath.New("service_name"), knownvalue.StringExact(serviceName)),
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("id"), knownvalue.StringExact(serviceA)),
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("service_name"), knownvalue.StringExact(serviceA)),
 					statecheck.ExpectKnownValue(name, tfjsonpath.New("blob"), knownvalue.StringExact(blob)),
 				},
 			},
@@ -45,11 +61,48 @@ func TestAccServiceIncidentDocumentTemplateResource(t *testing.T) {
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
-			// Update blob
+			// Update blob in place
 			{
-				Config: testAccServiceIncidentDocumentTemplateResourceConfig(serviceName, updatedBlob),
+				Config: testAccServiceIncidentDocumentTemplateResourceConfig(serviceA, serviceB, "a", updatedBlob),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(name, plancheck.ResourceActionUpdate),
+					},
+				},
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(name, tfjsonpath.New("blob"), knownvalue.StringExact(updatedBlob)),
+				},
+			},
+			// A template cleared outside Terraform is treated as absent and set again
+			{
+				PreConfig: func() {
+					err := testAccWaroomClient(t).Services.DeleteIncidentDocumentTemplate(context.Background(),
+						waroom.DeleteIncidentDocumentTemplateParams{Name: serviceA})
+					if err != nil {
+						t.Fatalf("delete incident document template of %s: %s", serviceA, err)
+					}
+				},
+				Config: testAccServiceIncidentDocumentTemplateResourceConfig(serviceA, serviceB, "a", updatedBlob),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(name, plancheck.ResourceActionCreate),
+					},
+				},
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("blob"), knownvalue.StringExact(updatedBlob)),
+				},
+			},
+			// Changing the service replaces the resource
+			{
+				Config: testAccServiceIncidentDocumentTemplateResourceConfig(serviceA, serviceB, "b", updatedBlob),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(name, plancheck.ResourceActionDestroyBeforeCreate),
+					},
+				},
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("id"), knownvalue.StringExact(serviceB)),
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("service_name"), knownvalue.StringExact(serviceB)),
 				},
 			},
 		},
@@ -81,14 +134,44 @@ func testAccCheckServiceIncidentDocumentTemplateDestroy(t *testing.T) resource.T
 	}
 }
 
-func testAccServiceIncidentDocumentTemplateResourceConfig(serviceName, blob string) string {
-	return fmt.Sprintf(`
-resource "waroom_service" "test" {
-  name = %q
+// testAccServiceIncidentDocumentTemplateServices returns n services created by acceptance tests ("tf-acc-*"),
+// reusing existing ones and creating only the missing ones. The Waroom API cannot delete a service,
+// so reusing them keeps the number of services from growing on every run.
+func testAccServiceIncidentDocumentTemplateServices(t *testing.T, n int) []string {
+	t.Helper()
+	ctx := context.Background()
+	client := testAccWaroomClient(t)
+
+	existing, err := client.Services.List(ctx, waroom.ListServicesParams{})
+	if err != nil {
+		t.Fatalf("list services: %s", err)
+	}
+
+	var names []string
+	for _, svc := range existing {
+		if len(names) < n && strings.HasPrefix(svc.Name, "tf-acc-") {
+			names = append(names, svc.Name)
+		}
+	}
+	for len(names) < n {
+		svc, err := client.Services.Create(ctx, waroom.CreateServiceReq{Name: acctest.RandomWithPrefix("tf-acc")})
+		if err != nil {
+			t.Fatalf("create service: %s", err)
+		}
+		names = append(names, svc.Name)
+	}
+	return names
 }
 
+// testAccServiceIncidentDocumentTemplateResourceConfig puts the template on service "a" or "b".
+func testAccServiceIncidentDocumentTemplateResourceConfig(serviceA, serviceB, target, blob string) string {
+	serviceName := serviceA
+	if target == "b" {
+		serviceName = serviceB
+	}
+	return fmt.Sprintf(`
 resource "waroom_service_incident_document_template" "test" {
-  service_name = waroom_service.test.name
+  service_name = %q
   blob         = %q
 }
 `, serviceName, blob)

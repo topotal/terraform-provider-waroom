@@ -4,14 +4,14 @@ page_title: "waroom_service_incident_document_template Resource - waroom"
 subcategory: ""
 description: |-
   Manages the incident document template of a Waroom service. The template provides the initial content of the incident documents created in the service.
-  ~> Note: A service has exactly one incident document template. Creating this resource overwrites any template already set on the service, and destroying it clears the template.
+  ~> Note: A service has exactly one incident document template, so manage at most one of this resource per service. Creating this resource overwrites any template already set on the service, and destroying it clears the template.
 ---
 
 # waroom_service_incident_document_template (Resource)
 
 Manages the incident document template of a Waroom service. The template provides the initial content of the incident documents created in the service.
 
-~> **Note:** A service has exactly one incident document template. Creating this resource overwrites any template already set on the service, and destroying it clears the template.
+~> **Note:** A service has exactly one incident document template, so manage at most one of this resource per service. Creating this resource overwrites any template already set on the service, and destroying it clears the template.
 
 ## Example Usage
 
@@ -50,7 +50,7 @@ resource "waroom_service_incident_document_template" "web" {
 
 ### Required
 
-- `blob` (String) The content of the incident document template, in Markdown. Must not be empty; destroy the resource to clear the template.
+- `blob` (String) The content of the incident document template, in Markdown. Must contain a non-whitespace character; destroy the resource to clear the template.
 - `service_name` (String) The name of the Waroom service the template belongs to. Changing this forces a new resource to be created.
 
 ### Read-Only

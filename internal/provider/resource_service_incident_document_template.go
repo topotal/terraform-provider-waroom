@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -67,7 +68,7 @@ func (r *ServiceIncidentDocumentTemplateResource) Schema(_ context.Context, _ re
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages the incident document template of a Waroom service. " +
 			"The template provides the initial content of the incident documents created in the service.\n\n" +
-			"~> **Note:** A service has exactly one incident document template. " +
+			"~> **Note:** A service has exactly one incident document template, so manage at most one of this resource per service. " +
 			"Creating this resource overwrites any template already set on the service, " +
 			"and destroying it clears the template.",
 
@@ -90,10 +91,10 @@ func (r *ServiceIncidentDocumentTemplateResource) Schema(_ context.Context, _ re
 				},
 			},
 			"blob": schema.StringAttribute{
-				MarkdownDescription: "The content of the incident document template, in Markdown. Must not be empty; destroy the resource to clear the template.",
+				MarkdownDescription: "The content of the incident document template, in Markdown. Must contain a non-whitespace character; destroy the resource to clear the template.",
 				Required:            true,
 				Validators: []validator.String{
-					stringvalidator.LengthAtLeast(1),
+					stringvalidator.RegexMatches(regexp.MustCompile(`\S`), "must contain a non-whitespace character"),
 				},
 			},
 		},
