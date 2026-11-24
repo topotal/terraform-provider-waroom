@@ -23,7 +23,7 @@ data "waroom_runbook" "example" {
 
 ### Required
 
-- `namespace` (String) The namespace of the runbook to look up, e.g. `/api-server/recovery`. The leading slash is optional.
+- `namespace` (String) The namespace of the runbook to look up, e.g. `/api-server/recovery`. The leading slash is optional. It may contain only ASCII letters, digits, `_`, `-` and `/`, and is at most 255 characters including the leading slash. The root namespace `/` is not supported.
 
 ### Read-Only
 
