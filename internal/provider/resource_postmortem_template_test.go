@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"testing"
 
 	"github.com/google/uuid"
@@ -30,16 +31,24 @@ func TestAccPostmortemTemplateResource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckPostmortemTemplateDestroy(t),
 		Steps: []resource.TestStep{
-			// Create and Read
+			// Create without a title and Read
 			{
-				Config: testAccPostmortemTemplateResourceConfig(fmt.Sprintf("title = %q", title), blob),
+				Config: testAccPostmortemTemplateResourceConfig("", blob),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(name, tfjsonpath.New("id"), knownvalue.NotNull()),
 					statecheck.ExpectKnownValue(name, tfjsonpath.New("uuid"), knownvalue.NotNull()),
-					statecheck.ExpectKnownValue(name, tfjsonpath.New("title"), knownvalue.StringExact(title)),
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("title"), knownvalue.Null()),
 					statecheck.ExpectKnownValue(name, tfjsonpath.New("blob"), knownvalue.StringExact(blob)),
 					statecheck.ExpectKnownValue(name, tfjsonpath.New("created_at"), knownvalue.NotNull()),
 					statecheck.ExpectKnownValue(name, tfjsonpath.New("updated_at"), knownvalue.NotNull()),
+				},
+			},
+			// Add a title
+			{
+				Config: testAccPostmortemTemplateResourceConfig(fmt.Sprintf("title = %q", title), blob),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("title"), knownvalue.StringExact(title)),
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("blob"), knownvalue.StringExact(blob)),
 				},
 			},
 			// ImportState
@@ -47,6 +56,11 @@ func TestAccPostmortemTemplateResource(t *testing.T) {
 				ResourceName:      name,
 				ImportState:       true,
 				ImportStateVerify: true,
+			},
+			// An empty title is rejected at plan time
+			{
+				Config:      testAccPostmortemTemplateResourceConfig(`title = ""`, blob),
+				ExpectError: regexp.MustCompile(`string length must be at least 1`),
 			},
 			// Update title and blob
 			{

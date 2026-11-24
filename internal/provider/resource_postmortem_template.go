@@ -8,11 +8,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/topotal/waroom-client-go/waroom"
@@ -86,12 +88,18 @@ func (r *PostmortemTemplateResource) Schema(_ context.Context, _ resource.Schema
 				},
 			},
 			"title": schema.StringAttribute{
-				MarkdownDescription: "The title of the postmortem template.",
+				MarkdownDescription: "The title of the postmortem template. Omit it for a template without a title; an empty string is not allowed.",
 				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthAtLeast(1),
+				},
 			},
 			"blob": schema.StringAttribute{
 				MarkdownDescription: "The content of the postmortem template, in Markdown.",
 				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthAtLeast(1),
+				},
 			},
 			"created_at": schema.StringAttribute{
 				MarkdownDescription: "The time the postmortem template was created, in RFC 3339 format.",

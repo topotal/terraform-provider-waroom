@@ -47,7 +47,7 @@ resource "waroom_postmortem_template" "from_file" {
 
 ### Optional
 
-- `title` (String) The title of the postmortem template.
+- `title` (String) The title of the postmortem template. Omit it for a template without a title; an empty string is not allowed.
 
 ### Read-Only
 
