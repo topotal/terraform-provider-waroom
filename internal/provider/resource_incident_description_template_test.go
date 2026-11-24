@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
@@ -33,6 +34,12 @@ func TestAccIncidentDescriptionTemplateResource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckIncidentDescriptionTemplateDestroy(t),
 		Steps: []resource.TestStep{
+			// A whitespace-only blob is rejected at plan time.
+			// This step comes first because the post-test destroy uses the last step's config.
+			{
+				Config:      testAccIncidentDescriptionTemplateResourceConfig(" \n"),
+				ExpectError: regexp.MustCompile(`must contain a non-whitespace character`),
+			},
 			// Create and Read
 			{
 				Config: testAccIncidentDescriptionTemplateResourceConfig(blob),
@@ -54,9 +61,14 @@ func TestAccIncidentDescriptionTemplateResource(t *testing.T) {
 				ImportStateId: "other",
 				ExpectError:   regexp.MustCompile(`Invalid Import ID`),
 			},
-			// Update blob
+			// Update blob in place
 			{
 				Config: testAccIncidentDescriptionTemplateResourceConfig(updatedBlob),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction(name, plancheck.ResourceActionUpdate),
+					},
+				},
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(name, tfjsonpath.New("blob"), knownvalue.StringExact(updatedBlob)),
 				},
@@ -77,15 +89,27 @@ func testAccRestoreIncidentDescriptionTemplate(t *testing.T) {
 
 	t.Cleanup(func() {
 		ctx := context.Background()
-		var err error
-		if original.Blob == "" {
-			err = client.IncidentDescriptionTemplate.Delete(ctx)
-		} else {
-			_, err = client.IncidentDescriptionTemplate.Update(ctx, waroom.UpdateIncidentDescriptionTemplateReq{
+		if original.Blob != "" {
+			_, err := client.IncidentDescriptionTemplate.Update(ctx, waroom.UpdateIncidentDescriptionTemplateReq{
 				Blob: waroom.NewOptString(original.Blob),
 			})
+			if err != nil {
+				t.Errorf("restore incident description template: %s", err)
+			}
+			return
 		}
+
+		// There was no template. Normally the destroy has already cleared it, so delete only
+		// when one is left (e.g. the test failed midway).
+		current, err := client.IncidentDescriptionTemplate.Get(ctx)
 		if err != nil {
+			t.Errorf("get incident description template: %s", err)
+			return
+		}
+		if current.Blob == "" {
+			return
+		}
+		if err := client.IncidentDescriptionTemplate.Delete(ctx); err != nil {
 			t.Errorf("restore incident description template: %s", err)
 		}
 	})

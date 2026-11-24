@@ -41,7 +41,7 @@ resource "waroom_incident_description_template" "example" {
 
 ### Required
 
-- `blob` (String) The content of the incident description template. Must not be empty; destroy the resource to clear the template.
+- `blob` (String) The content of the incident description template. Must contain a non-whitespace character; destroy the resource to clear the template.
 
 ### Read-Only
 

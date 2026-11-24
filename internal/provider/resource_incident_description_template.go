@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -79,10 +80,10 @@ func (r *IncidentDescriptionTemplateResource) Schema(_ context.Context, _ resour
 				},
 			},
 			"blob": schema.StringAttribute{
-				MarkdownDescription: "The content of the incident description template. Must not be empty; destroy the resource to clear the template.",
+				MarkdownDescription: "The content of the incident description template. Must contain a non-whitespace character; destroy the resource to clear the template.",
 				Required:            true,
 				Validators: []validator.String{
-					stringvalidator.LengthAtLeast(1),
+					stringvalidator.RegexMatches(regexp.MustCompile(`\S`), "must contain a non-whitespace character"),
 				},
 			},
 		},
