@@ -1,0 +1,113 @@
+package provider
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"regexp"
+	"testing"
+
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
+	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
+	"github.com/topotal/waroom-client-go/waroom"
+)
+
+// The template is organization-wide, so the test saves the current template and restores it afterwards.
+func TestAccIncidentDescriptionTemplateResource(t *testing.T) {
+	if os.Getenv(resource.EnvTfAcc) == "" {
+		t.Skipf("Acceptance tests skipped unless env '%s' set", resource.EnvTfAcc)
+	}
+	testAccPreCheck(t)
+	testAccRestoreIncidentDescriptionTemplate(t)
+
+	blob := "## Impact\n\n## Current status\n"
+	updatedBlob := "## Impact\n\n## Current status\n\n## Next update\n"
+
+	const name = "waroom_incident_description_template.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIncidentDescriptionTemplateDestroy(t),
+		Steps: []resource.TestStep{
+			// Create and Read
+			{
+				Config: testAccIncidentDescriptionTemplateResourceConfig(blob),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("id"), knownvalue.StringExact(incidentDescriptionTemplateID)),
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("blob"), knownvalue.StringExact(blob)),
+				},
+			},
+			// ImportState
+			{
+				ResourceName:      name,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			// ImportState rejects any other ID
+			{
+				ResourceName:  name,
+				ImportState:   true,
+				ImportStateId: "other",
+				ExpectError:   regexp.MustCompile(`Invalid Import ID`),
+			},
+			// Update blob
+			{
+				Config: testAccIncidentDescriptionTemplateResourceConfig(updatedBlob),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("blob"), knownvalue.StringExact(updatedBlob)),
+				},
+			},
+		},
+	})
+}
+
+// testAccRestoreIncidentDescriptionTemplate puts the organization's current template back when the test ends.
+func testAccRestoreIncidentDescriptionTemplate(t *testing.T) {
+	t.Helper()
+	client := testAccWaroomClient(t)
+
+	original, err := client.IncidentDescriptionTemplate.Get(context.Background())
+	if err != nil {
+		t.Fatalf("get incident description template: %s", err)
+	}
+
+	t.Cleanup(func() {
+		ctx := context.Background()
+		var err error
+		if original.Blob == "" {
+			err = client.IncidentDescriptionTemplate.Delete(ctx)
+		} else {
+			_, err = client.IncidentDescriptionTemplate.Update(ctx, waroom.UpdateIncidentDescriptionTemplateReq{
+				Blob: waroom.NewOptString(original.Blob),
+			})
+		}
+		if err != nil {
+			t.Errorf("restore incident description template: %s", err)
+		}
+	})
+}
+
+func testAccCheckIncidentDescriptionTemplateDestroy(t *testing.T) resource.TestCheckFunc {
+	return func(_ *terraform.State) error {
+		tmpl, err := testAccWaroomClient(t).IncidentDescriptionTemplate.Get(context.Background())
+		if err != nil {
+			return fmt.Errorf("get incident description template: %w", err)
+		}
+		if tmpl.Blob != "" {
+			return fmt.Errorf("incident description template still exists")
+		}
+		return nil
+	}
+}
+
+func testAccIncidentDescriptionTemplateResourceConfig(blob string) string {
+	return fmt.Sprintf(`
+resource "waroom_incident_description_template" "test" {
+  blob = %q
+}
+`, blob)
+}
