@@ -7,7 +7,12 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -29,6 +34,50 @@ func TestRunbookNamespaceParam(t *testing.T) {
 	for in, want := range cases {
 		if got := runbookNamespaceParam(in); got != want {
 			t.Errorf("runbookNamespaceParam(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestRunbookNamespaceValidators(t *testing.T) {
+	valid := []string{
+		"/default",
+		"default",
+		"/api-server/recovery",
+		"api-server/recovery",
+		"/A_z-0/9",
+		"/a/",
+		"/" + strings.Repeat("a", 254),
+		strings.Repeat("a", 254),
+	}
+	invalid := []string{
+		"",
+		"/",
+		"//a",
+		"/with space",
+		"/v1.2",
+		"/日本語",
+		"/" + strings.Repeat("a", 255),
+		strings.Repeat("a", 255),
+	}
+
+	validate := func(raw string) diag.Diagnostics {
+		var diags diag.Diagnostics
+		for _, v := range runbookNamespaceValidators() {
+			var resp validator.StringResponse
+			v.ValidateString(context.Background(), validator.StringRequest{ConfigValue: types.StringValue(raw)}, &resp)
+			diags.Append(resp.Diagnostics...)
+		}
+		return diags
+	}
+
+	for _, s := range valid {
+		if diags := validate(s); diags.HasError() {
+			t.Errorf("expected %q to be valid, got: %v", s, diags)
+		}
+	}
+	for _, s := range invalid {
+		if !validate(s).HasError() {
+			t.Errorf("expected %q to be invalid", s)
 		}
 	}
 }

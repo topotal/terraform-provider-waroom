@@ -76,14 +76,11 @@ func (d *RunbookDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 				Computed:            true,
 			},
 			"namespace": schema.StringAttribute{
-				MarkdownDescription: "The namespace of the runbook to look up, e.g. `/api-server/recovery`. The leading slash is optional.",
-				Required:            true,
-				Validators: []validator.String{
-					stringvalidator.RegexMatches(
-						regexp.MustCompile(`^/?[^/]`),
-						"must be a runbook namespace such as `/default` or `api-server/recovery`",
-					),
-				},
+				MarkdownDescription: "The namespace of the runbook to look up, e.g. `/api-server/recovery`. The leading slash is optional. " +
+					"It may contain only ASCII letters, digits, `_`, `-` and `/`, and is at most 255 characters including the leading slash. " +
+					"The root namespace `/` is not supported.",
+				Required:   true,
+				Validators: runbookNamespaceValidators(),
 			},
 			"blob": schema.StringAttribute{
 				MarkdownDescription: "Markdown content of the runbook.",
@@ -133,6 +130,26 @@ func (d *RunbookDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	data.UpdatedAt = runbookTimeValue(runbook.UpdatedAt.Value, runbook.UpdatedAt.Set)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+// runbookNamespaceValidators mirrors the API's namespace rule (`\A/[\w\-/]*\z`, at most 255 characters),
+// with the leading slash made optional. The root namespace "/" (and anything starting with "//") is rejected:
+// with the slash stripped its Get path would be empty, which the API answers with the runbook list instead.
+func runbookNamespaceValidators() []validator.String {
+	return []validator.String{
+		stringvalidator.RegexMatches(
+			regexp.MustCompile(`^/?[A-Za-z0-9_/-]*$`),
+			"may contain only ASCII letters, digits, `_`, `-` and `/`, with an optional leading slash",
+		),
+		stringvalidator.RegexMatches(
+			regexp.MustCompile(`^/?[^/]`),
+			"must not be empty or the root namespace `/`; use a namespace such as `/default` or `api-server/recovery`",
+		),
+		stringvalidator.RegexMatches(
+			regexp.MustCompile(`^(/.{0,254}|[^/].{0,253})$`),
+			"must be at most 255 characters including the leading slash",
+		),
+	}
 }
 
 // runbookNamespaceParam converts a namespace to the form the runbook API expects in its path:
