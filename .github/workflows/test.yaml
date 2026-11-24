@@ -8,6 +8,8 @@ on:
         required: false
         type: boolean
         default: false
+  push:
+    branches: [ main ]
   pull_request:
 
 permissions:
@@ -38,9 +40,26 @@ jobs:
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+      # Compiling the dependencies (mostly the generated waroom-client-go) dominates
+      # the first build step. The build cache is content-addressed, so a stale entry
+      # is never used. Only pushes to main save it, so PR code cannot poison it.
+      - id: go-cache
+        run: echo "dir=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.go-cache.outputs.dir }}
+          key: go-build-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-build-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}-
+            go-build-${{ runner.os }}-
       - name: Run unit tests
         run: go test -timeout=300s -parallel=10 -cover -v ./...
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.go-cache.outputs.dir }}
+          key: go-build-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.sha }}
 
   acceptance-test:
     runs-on: ubuntu-latest
