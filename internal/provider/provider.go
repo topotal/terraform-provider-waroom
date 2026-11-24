@@ -133,6 +133,8 @@ func (p *WaroomProvider) Resources(ctx context.Context) []func() resource.Resour
 	return []func() resource.Resource{
 		NewServiceResource,
 		NewServiceLabelResource,
+		NewServiceArchitectureContextResource,
+		NewPostmortemTemplateResource,
 		NewServiceIncidentDocumentTemplateResource,
 	}
 }
