@@ -113,8 +113,8 @@ func TestAccOnCallEscalationPolicyDataSource(t *testing.T) {
 	client := testAccOnCallEscalationPolicyClient(t)
 	teamName := acctest.RandomWithPrefix("tf-acc")
 	policyName := acctest.RandomWithPrefix("tf-acc")
-	team := testAccCreateOnCallTeam(t, client, teamName)
-	policy := testAccCreateOnCallEscalationPolicy(t, client, policyName, team.UUID)
+	team := testAccEscalationPolicyCreateTeam(t, client, teamName)
+	policy := testAccEscalationPolicyCreatePolicy(t, client, policyName, team.UUID)
 
 	const byUUID = "data.waroom_on_call_escalation_policy.by_uuid"
 	const byName = "data.waroom_on_call_escalation_policy.by_name"
@@ -228,8 +228,8 @@ func testAccOnCallEscalationPolicyClient(t *testing.T) *waroom.Client {
 	return client
 }
 
-// testAccCreateOnCallTeam creates an on-call team with one rotation without participants and deletes it on cleanup.
-func testAccCreateOnCallTeam(t *testing.T, client *waroom.Client, name string) *waroom.CreatedOnCallTeam {
+// testAccEscalationPolicyCreateTeam creates an on-call team with one rotation without participants and deletes it on cleanup.
+func testAccEscalationPolicyCreateTeam(t *testing.T, client *waroom.Client, name string) *waroom.CreatedOnCallTeam {
 	t.Helper()
 	rotation := waroom.CreateOnCallTeamRotationReq{
 		Timezone:         "Asia/Tokyo",
@@ -253,8 +253,8 @@ func testAccCreateOnCallTeam(t *testing.T, client *waroom.Client, name string) *
 	return team
 }
 
-// testAccCreateOnCallEscalationPolicy creates an escalation policy with two steps for the team and deletes it on cleanup.
-func testAccCreateOnCallEscalationPolicy(t *testing.T, client *waroom.Client, name, teamUUID string) *waroom.CreatedOnCallEscalationPolicy {
+// testAccEscalationPolicyCreatePolicy creates an escalation policy with two steps for the team and deletes it on cleanup.
+func testAccEscalationPolicyCreatePolicy(t *testing.T, client *waroom.Client, name, teamUUID string) *waroom.CreatedOnCallEscalationPolicy {
 	t.Helper()
 	fallback := waroom.CreateOnCallEscalationPolicyStep{TeamUUID: teamUUID}
 	fallback.StepType.SetTo("fallback")
