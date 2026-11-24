@@ -147,6 +147,7 @@ func (p *WaroomProvider) DataSources(ctx context.Context) []func() datasource.Da
 		NewServiceLabelDataSource,
 		NewPostmortemTemplateDataSource,
 		NewOnCallTriggerDataSource,
+		NewOnCallEscalationPolicyDataSource,
 	}
 }
 
