@@ -157,7 +157,7 @@ func (r *OnCallEscalationPolicyResource) Schema(_ context.Context, _ resource.Sc
 				Computed: true,
 				Default:  stringdefault.StaticString(onCallEscalationPolicyDefaultTimezone),
 				Validators: []validator.String{
-					stringvalidator.LengthAtLeast(1),
+					waroomvalidator.Timezone(),
 				},
 			},
 			"call_depth": schema.Int64Attribute{

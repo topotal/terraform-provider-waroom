@@ -180,7 +180,7 @@ func TestAccOnCallEscalationPolicyResource(t *testing.T) {
 	updatedName := acctest.RandomWithPrefix("tf-acc")
 	renamedName := acctest.RandomWithPrefix("tf-acc")
 	updatedBody := `
-  timezone       = "UTC"
+  timezone       = "Etc/UTC" # an alias, which the API stores as sent
   call_depth     = 2
   call_traversal = "breadth_first"
 
@@ -251,7 +251,7 @@ func TestAccOnCallEscalationPolicyResource(t *testing.T) {
 				Check:  testAccCaptureOnCallEscalationPolicyChildUUIDs(client, addr, &childUUIDs),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("name"), knownvalue.StringExact(updatedName)),
-					statecheck.ExpectKnownValue(addr, tfjsonpath.New("timezone"), knownvalue.StringExact("UTC")),
+					statecheck.ExpectKnownValue(addr, tfjsonpath.New("timezone"), knownvalue.StringExact("Etc/UTC")),
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("call_depth"), knownvalue.Int64Exact(2)),
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("call_traversal"), knownvalue.StringExact("breadth_first")),
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("steps"), knownvalue.ListExact([]knownvalue.Check{
