@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -18,6 +17,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/topotal/waroom-client-go/waroom"
+
+	waroomvalidator "github.com/topotal/terraform-provider-waroom/internal/validator"
 )
 
 var (
@@ -88,17 +89,17 @@ func (r *PostmortemTemplateResource) Schema(_ context.Context, _ resource.Schema
 				},
 			},
 			"title": schema.StringAttribute{
-				MarkdownDescription: "The title of the postmortem template. Omit it for a template without a title; an empty string is not allowed.",
+				MarkdownDescription: "The title of the postmortem template. Omit it for a template without a title. Must contain a non-whitespace character.",
 				Optional:            true,
 				Validators: []validator.String{
-					stringvalidator.LengthAtLeast(1),
+					waroomvalidator.NotBlank(),
 				},
 			},
 			"blob": schema.StringAttribute{
-				MarkdownDescription: "The content of the postmortem template, in Markdown.",
+				MarkdownDescription: "The content of the postmortem template, in Markdown. Must contain a non-whitespace character.",
 				Required:            true,
 				Validators: []validator.String{
-					stringvalidator.LengthAtLeast(1),
+					waroomvalidator.NotBlank(),
 				},
 			},
 			"created_at": schema.StringAttribute{

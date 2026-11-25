@@ -41,7 +41,7 @@ func TestAccServiceIncidentDocumentTemplateResource(t *testing.T) {
 			// A whitespace-only blob is rejected at plan time.
 			// This step comes first because the post-test destroy uses the last step's config.
 			{
-				Config:      testAccServiceIncidentDocumentTemplateResourceConfig(serviceA, serviceB, "a", " \n"),
+				Config:      testAccServiceIncidentDocumentTemplateResourceConfig(serviceA, serviceB, "a", " \n\u3000\u00a0"),
 				ExpectError: regexp.MustCompile(`must contain a non-whitespace character`),
 			},
 			// Create and Read

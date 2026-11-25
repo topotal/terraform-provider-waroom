@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -17,6 +16,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/topotal/waroom-client-go/waroom"
+
+	waroomvalidator "github.com/topotal/terraform-provider-waroom/internal/validator"
 )
 
 var (
@@ -94,7 +95,7 @@ func (r *ServiceIncidentDocumentTemplateResource) Schema(_ context.Context, _ re
 				MarkdownDescription: "The content of the incident document template, in Markdown. Must contain a non-whitespace character; destroy the resource to clear the template.",
 				Required:            true,
 				Validators: []validator.String{
-					stringvalidator.RegexMatches(regexp.MustCompile(`\S`), "must contain a non-whitespace character"),
+					waroomvalidator.NotBlank(),
 				},
 			},
 		},
@@ -220,6 +221,12 @@ func (r *ServiceIncidentDocumentTemplateResource) ImportState(ctx context.Contex
 
 // put upserts the template from the plan and returns the resulting state.
 func (r *ServiceIncidentDocumentTemplateResource) put(ctx context.Context, plan ServiceIncidentDocumentTemplateResourceModel) (ServiceIncidentDocumentTemplateResourceModel, error) {
+	// The schema validator is skipped when blob is unknown at plan time, so check it again here:
+	// the API treats a blank template as absent, and Read would then drop the resource.
+	if waroomvalidator.IsBlank(plan.Blob.ValueString()) {
+		return ServiceIncidentDocumentTemplateResourceModel{}, errors.New("blob must contain a non-whitespace character; destroy the resource to clear the template")
+	}
+
 	updated, err := r.client.Services.UpdateIncidentDocumentTemplate(ctx,
 		waroom.UpdateIncidentDocumentTemplateReq{Blob: waroom.NewOptString(plan.Blob.ValueString())},
 		waroom.UpdateIncidentDocumentTemplateParams{Name: plan.ServiceName.ValueString()},

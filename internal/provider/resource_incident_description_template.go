@@ -2,10 +2,9 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"regexp"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -15,6 +14,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/topotal/waroom-client-go/waroom"
+
+	waroomvalidator "github.com/topotal/terraform-provider-waroom/internal/validator"
 )
 
 var (
@@ -83,7 +84,7 @@ func (r *IncidentDescriptionTemplateResource) Schema(_ context.Context, _ resour
 				MarkdownDescription: "The content of the incident description template. Must contain a non-whitespace character; destroy the resource to clear the template.",
 				Required:            true,
 				Validators: []validator.String{
-					stringvalidator.RegexMatches(regexp.MustCompile(`\S`), "must contain a non-whitespace character"),
+					waroomvalidator.NotBlank(),
 				},
 			},
 		},
@@ -193,6 +194,12 @@ func (r *IncidentDescriptionTemplateResource) ImportState(ctx context.Context, r
 
 // put upserts the template from the plan and returns the resulting state.
 func (r *IncidentDescriptionTemplateResource) put(ctx context.Context, plan IncidentDescriptionTemplateResourceModel) (IncidentDescriptionTemplateResourceModel, error) {
+	// The schema validator is skipped when blob is unknown at plan time, so check it again here:
+	// the API treats a blank template as absent, and Read would then drop the resource.
+	if waroomvalidator.IsBlank(plan.Blob.ValueString()) {
+		return IncidentDescriptionTemplateResourceModel{}, errors.New("blob must contain a non-whitespace character; destroy the resource to clear the template")
+	}
+
 	updated, err := r.client.IncidentDescriptionTemplate.Update(ctx, waroom.UpdateIncidentDescriptionTemplateReq{
 		Blob: waroom.NewOptString(plan.Blob.ValueString()),
 	})
