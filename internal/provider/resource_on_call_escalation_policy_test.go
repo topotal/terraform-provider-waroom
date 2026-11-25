@@ -18,6 +18,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	waroom "github.com/topotal/waroom-client-go/waroom"
+
+	"github.com/topotal/terraform-provider-waroom/internal/utils"
 )
 
 func TestNewOnCallEscalationPolicyResourceModel(t *testing.T) {
@@ -410,4 +412,17 @@ func testAccCheckOnCallEscalationPolicyDestroy(client *waroom.Client) resource.T
 		}
 		return nil
 	}
+}
+
+// testAccOnCallEscalationPolicyClient builds a client from the same environment variables as the provider.
+func testAccOnCallEscalationPolicyClient(t *testing.T) *waroom.Client {
+	t.Helper()
+	client, err := waroom.NewClient(context.Background(),
+		waroom.WithBaseURL(os.Getenv(utils.WaroomAPIEndPointEnvName)),
+		waroom.WithAPIKey(os.Getenv(utils.WaroomAPIKeyEnvName)),
+	)
+	if err != nil {
+		t.Fatalf("creating Waroom client: %v", err)
+	}
+	return client
 }
