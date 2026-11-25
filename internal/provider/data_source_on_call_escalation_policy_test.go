@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"regexp"
@@ -15,8 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	waroom "github.com/topotal/waroom-client-go/waroom"
-
-	"github.com/topotal/terraform-provider-waroom/internal/utils"
 )
 
 func TestNewOnCallEscalationPolicyDataSourceModel(t *testing.T) {
@@ -109,22 +106,23 @@ func TestAccOnCallEscalationPolicyDataSource(t *testing.T) {
 	}
 	testAccPreCheck(t)
 
-	// There is no on-call resource in this provider yet, so the prerequisites are created with the client.
-	client := testAccOnCallEscalationPolicyClient(t)
 	teamName := acctest.RandomWithPrefix("tf-acc")
 	policyName := acctest.RandomWithPrefix("tf-acc")
-	team := testAccEscalationPolicyCreateTeam(t, client, teamName)
-	policy := testAccEscalationPolicyCreatePolicy(t, client, policyName, team.UUID)
 
+	const policy = "waroom_on_call_escalation_policy.test"
+	const team = "waroom_on_call_team.test"
 	const byUUID = "data.waroom_on_call_escalation_policy.by_uuid"
 	const byName = "data.waroom_on_call_escalation_policy.by_name"
+	stepTeamUUID := func(i int) tfjsonpath.Path {
+		return tfjsonpath.New("steps").AtSliceIndex(i).AtMapKey("team").AtMapKey("uuid")
+	}
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Error cases first: the post-test destroy runs with the last step's config, which must be valid.
 			{
-				Config:      testAccOnCallEscalationPolicyDataSourceBothConfig(policy.UUID, policyName),
+				Config:      testAccOnCallEscalationPolicyDataSourceBothConfig("00000000-0000-0000-0000-000000000000", policyName),
 				ExpectError: regexp.MustCompile(`Invalid Attribute Combination`),
 			},
 			{
@@ -132,10 +130,10 @@ func TestAccOnCallEscalationPolicyDataSource(t *testing.T) {
 				ExpectError: regexp.MustCompile(`On-Call Escalation Policy Not Found`),
 			},
 			{
-				Config: testAccOnCallEscalationPolicyDataSourceConfig(policy.UUID, policyName),
+				Config: testAccOnCallEscalationPolicyDataSourceConfig(teamName, policyName),
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue(byUUID, tfjsonpath.New("id"), knownvalue.StringExact(policy.UUID)),
-					statecheck.ExpectKnownValue(byUUID, tfjsonpath.New("uuid"), knownvalue.StringExact(policy.UUID)),
+					statecheck.CompareValuePairs(byUUID, tfjsonpath.New("id"), policy, tfjsonpath.New("uuid"), compare.ValuesSame()),
+					statecheck.CompareValuePairs(byUUID, tfjsonpath.New("uuid"), policy, tfjsonpath.New("uuid"), compare.ValuesSame()),
 					statecheck.ExpectKnownValue(byUUID, tfjsonpath.New("name"), knownvalue.StringExact(policyName)),
 					statecheck.ExpectKnownValue(byUUID, tfjsonpath.New("timezone"), knownvalue.StringExact("Asia/Tokyo")),
 					statecheck.ExpectKnownValue(byUUID, tfjsonpath.New("call_depth"), knownvalue.Int64Exact(2)),
@@ -147,7 +145,7 @@ func TestAccOnCallEscalationPolicyDataSource(t *testing.T) {
 							"step_type":         knownvalue.StringExact("primary"),
 							"simultaneous_call": knownvalue.Bool(false),
 							"team": knownvalue.ObjectExact(map[string]knownvalue.Check{
-								"uuid":  knownvalue.StringExact(team.UUID),
+								"uuid":  knownvalue.NotNull(),
 								"name":  knownvalue.StringExact(teamName),
 								"color": knownvalue.StringExact("FF0000"),
 							}),
@@ -157,11 +155,11 @@ func TestAccOnCallEscalationPolicyDataSource(t *testing.T) {
 							"position":          knownvalue.Int64Exact(1),
 							"step_type":         knownvalue.StringExact("fallback"),
 							"simultaneous_call": knownvalue.Bool(true),
-							"team": knownvalue.ObjectPartial(map[string]knownvalue.Check{
-								"uuid": knownvalue.StringExact(team.UUID),
-							}),
+							"team":              knownvalue.NotNull(),
 						}),
 					})),
+					statecheck.CompareValuePairs(byUUID, stepTeamUUID(0), team, tfjsonpath.New("uuid"), compare.ValuesSame()),
+					statecheck.CompareValuePairs(byUUID, stepTeamUUID(1), team, tfjsonpath.New("uuid"), compare.ValuesSame()),
 					statecheck.ExpectKnownValue(byUUID, tfjsonpath.New("time_slots"), knownvalue.ListExact([]knownvalue.Check{
 						knownvalue.ObjectExact(map[string]knownvalue.Check{
 							"uuid":        knownvalue.NotNull(),
@@ -176,8 +174,8 @@ func TestAccOnCallEscalationPolicyDataSource(t *testing.T) {
 							"end_time":    knownvalue.StringExact("02:00"),
 						}),
 					})),
-					statecheck.ExpectKnownValue(byName, tfjsonpath.New("id"), knownvalue.StringExact(policy.UUID)),
-					statecheck.ExpectKnownValue(byName, tfjsonpath.New("uuid"), knownvalue.StringExact(policy.UUID)),
+					statecheck.CompareValuePairs(byName, tfjsonpath.New("id"), policy, tfjsonpath.New("uuid"), compare.ValuesSame()),
+					statecheck.CompareValuePairs(byName, tfjsonpath.New("uuid"), policy, tfjsonpath.New("uuid"), compare.ValuesSame()),
 					statecheck.CompareValuePairs(byName, tfjsonpath.New("steps"), byUUID, tfjsonpath.New("steps"), compare.ValuesSame()),
 					statecheck.CompareValuePairs(byName, tfjsonpath.New("time_slots"), byUUID, tfjsonpath.New("time_slots"), compare.ValuesSame()),
 				},
@@ -186,16 +184,47 @@ func TestAccOnCallEscalationPolicyDataSource(t *testing.T) {
 	})
 }
 
-func testAccOnCallEscalationPolicyDataSourceConfig(uuid, name string) string {
+// testAccOnCallEscalationPolicyDataSourceConfig declares an on-call team and an escalation policy with two steps for it,
+// and looks the policy up by uuid and by name.
+func testAccOnCallEscalationPolicyDataSourceConfig(teamName, policyName string) string {
 	return fmt.Sprintf(`
+resource "waroom_on_call_team" "test" {
+  name  = %[1]q
+  color = "FF0000"
+
+  rotations = [{
+    timezone           = "Asia/Tokyo"
+    started_at         = "2026-01-05T09:00:00+09:00"
+    shift_handoff_time = "09:00"
+    shift_handoff_wday = 1
+  }]
+}
+
+resource "waroom_on_call_escalation_policy" "test" {
+  name           = %[2]q
+  timezone       = "Asia/Tokyo"
+  call_depth     = 2
+  call_traversal = "breadth_first"
+
+  steps = [
+    { team_uuid = waroom_on_call_team.test.uuid },
+    { team_uuid = waroom_on_call_team.test.uuid, step_type = "fallback", simultaneous_call = true },
+  ]
+
+  time_slots = [
+    { day_of_week = 1, start_time = "09:00", end_time = "18:00" },
+    { day_of_week = 3, start_time = "22:00", end_time = "02:00" },
+  ]
+}
+
 data "waroom_on_call_escalation_policy" "by_uuid" {
-  uuid = %[1]q
+  uuid = waroom_on_call_escalation_policy.test.uuid
 }
 
 data "waroom_on_call_escalation_policy" "by_name" {
-  name = %[2]q
+  name = waroom_on_call_escalation_policy.test.name
 }
-`, uuid, name)
+`, teamName, policyName)
 }
 
 func testAccOnCallEscalationPolicyDataSourceByNameConfig(name string) string {
@@ -213,74 +242,4 @@ data "waroom_on_call_escalation_policy" "test" {
   name = %[2]q
 }
 `, uuid, name)
-}
-
-// testAccOnCallEscalationPolicyClient builds a client from the same environment variables as the provider.
-func testAccOnCallEscalationPolicyClient(t *testing.T) *waroom.Client {
-	t.Helper()
-	client, err := waroom.NewClient(context.Background(),
-		waroom.WithBaseURL(os.Getenv(utils.WaroomAPIEndPointEnvName)),
-		waroom.WithAPIKey(os.Getenv(utils.WaroomAPIKeyEnvName)),
-	)
-	if err != nil {
-		t.Fatalf("creating Waroom client: %v", err)
-	}
-	return client
-}
-
-// testAccEscalationPolicyCreateTeam creates an on-call team with one rotation without participants and deletes it on cleanup.
-func testAccEscalationPolicyCreateTeam(t *testing.T, client *waroom.Client, name string) *waroom.CreatedOnCallTeam {
-	t.Helper()
-	rotation := waroom.CreateOnCallTeamRotationReq{
-		Timezone:         "Asia/Tokyo",
-		StartedAt:        "2026-01-05T09:00:00+09:00",
-		ShiftHandoffTime: "09:00",
-	}
-	rotation.ShiftHandoffWday.SetTo(1)
-	team, err := client.OnCallTeams.Create(context.Background(), waroom.CreateOnCallTeamReq{
-		Name:      name,
-		Color:     "FF0000",
-		Rotations: []waroom.CreateOnCallTeamRotationReq{rotation},
-	})
-	if err != nil {
-		t.Fatalf("creating on-call team: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := client.OnCallTeams.Delete(context.Background(), waroom.DeleteOnCallTeamParams{UUID: team.UUID}); err != nil {
-			t.Errorf("deleting on-call team %s: %v", team.UUID, err)
-		}
-	})
-	return team
-}
-
-// testAccEscalationPolicyCreatePolicy creates an escalation policy with two steps for the team and deletes it on cleanup.
-func testAccEscalationPolicyCreatePolicy(t *testing.T, client *waroom.Client, name, teamUUID string) *waroom.CreatedOnCallEscalationPolicy {
-	t.Helper()
-	fallback := waroom.CreateOnCallEscalationPolicyStep{TeamUUID: teamUUID}
-	fallback.StepType.SetTo("fallback")
-	fallback.SimultaneousCall.SetTo(true)
-	req := waroom.CreateOnCallEscalationPolicyReq{
-		Name:     name,
-		Timezone: waroom.NewOptString("Asia/Tokyo"),
-		Steps: []waroom.CreateOnCallEscalationPolicyStep{
-			{TeamUUID: teamUUID},
-			fallback,
-		},
-		TimeSlots: []waroom.CreateOnCallEscalationPolicyTimeSlot{
-			{DayOfWeek: 1, StartTime: "09:00", EndTime: "18:00"},
-			{DayOfWeek: 3, StartTime: "22:00", EndTime: "02:00"},
-		},
-	}
-	req.CallDepth.SetTo(2)
-	req.CallTraversal.SetTo("breadth_first")
-	policy, err := client.OnCallEscalationPolicies.Create(context.Background(), req)
-	if err != nil {
-		t.Fatalf("creating on-call escalation policy: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := client.OnCallEscalationPolicies.Delete(context.Background(), waroom.DeleteOnCallEscalationPolicyParams{UUID: policy.UUID}); err != nil {
-			t.Errorf("deleting on-call escalation policy %s: %v", policy.UUID, err)
-		}
-	})
-	return policy
 }
