@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"testing"
 	"time"
 
@@ -15,41 +16,24 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/topotal/waroom-client-go/waroom"
-
-	"github.com/topotal/terraform-provider-waroom/internal/utils"
 )
 
 func TestUserDataSourceModelFill(t *testing.T) {
 	createdAt := time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)
-	slackKey := "U0123ABCD"
 
 	tests := []struct {
 		name         string
-		fields       userFields
+		slackUserKey *string
 		wantSlackKey types.String
 	}{
-		{
-			name: "linked to Slack",
-			fields: userFields{
-				sub: "auth0|abc", nickname: "alice", picture: "https://example.com/a.png", status: "active",
-				slackUserKey: &slackKey, phoneVerified: true, createdAt: createdAt,
-			},
-			wantSlackKey: types.StringValue(slackKey),
-		},
-		{
-			name: "not linked to Slack",
-			fields: userFields{
-				sub: "auth0|abc", nickname: "alice", picture: "https://example.com/a.png", status: "active",
-				createdAt: createdAt,
-			},
-			wantSlackKey: types.StringNull(),
-		},
+		{name: "linked to Slack", slackUserKey: slackUserKey(false, "U0123ABCD"), wantSlackKey: types.StringValue("U0123ABCD")},
+		{name: "not linked to Slack", slackUserKey: slackUserKey(true, ""), wantSlackKey: types.StringNull()},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var got UserDataSourceModel
-			got.fill(tt.fields)
+			got.fill("auth0|abc", "alice", "https://example.com/a.png", "active", tt.slackUserKey, true, createdAt)
 
 			want := UserDataSourceModel{
 				Id:            types.StringValue("auth0|abc"),
@@ -58,7 +42,7 @@ func TestUserDataSourceModelFill(t *testing.T) {
 				SlackUserKey:  tt.wantSlackKey,
 				Picture:       types.StringValue("https://example.com/a.png"),
 				Status:        types.StringValue("active"),
-				PhoneVerified: types.BoolValue(tt.fields.phoneVerified),
+				PhoneVerified: types.BoolValue(true),
 				CreatedAt:     types.StringValue("2025-01-02T03:04:05Z"),
 			}
 			if got != want {
@@ -68,34 +52,76 @@ func TestUserDataSourceModelFill(t *testing.T) {
 	}
 }
 
-// testAccUserDataSourceExistingUser returns a user of the test organization. Users cannot be created
-// through the API, so the acceptance test reads an existing one. It prefers a user linked to Slack so
-// that the lookup by slack_user_key can be tested too.
+func TestMatchUsers(t *testing.T) {
+	newUser := func(sub, nickname, slackKey string) waroom.User {
+		var u waroom.User
+		u.Sub = sub
+		u.Nickname = nickname
+		u.SlackUser.Null = slackKey == ""
+		u.SlackUser.Value.Key = slackKey
+		return u
+	}
+	users := []waroom.User{
+		newUser("alice", "alice", "U0001"),
+		newUser("alice-upper", "Alice", ""),
+		newUser("bob", "bob", "U0002"),
+	}
+
+	tests := []struct {
+		name     string
+		nickname types.String
+		slackKey types.String
+		wantSubs []string
+	}{
+		{name: "nickname matches exactly", nickname: types.StringValue("alice"), slackKey: types.StringNull(), wantSubs: []string{"alice"}},
+		{name: "nickname is case-sensitive", nickname: types.StringValue("ALICE"), slackKey: types.StringNull(), wantSubs: nil},
+		{name: "slack key matches", nickname: types.StringNull(), slackKey: types.StringValue("U0002"), wantSubs: []string{"bob"}},
+		{name: "slack key does not match unlinked users", nickname: types.StringNull(), slackKey: types.StringValue(""), wantSubs: nil},
+		{name: "no match", nickname: types.StringValue("carol"), slackKey: types.StringNull(), wantSubs: nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotSubs []string
+			for _, u := range matchUsers(users, tt.nickname, tt.slackKey) {
+				gotSubs = append(gotSubs, u.Sub)
+			}
+			if !slices.Equal(gotSubs, tt.wantSubs) {
+				t.Errorf("matchUsers() subs = %v, want %v", gotSubs, tt.wantSubs)
+			}
+		})
+	}
+}
+
+// testAccUserDataSourceExistingUser returns an active user of the test organization. Users cannot be
+// created through the API, so the acceptance test reads an existing one. Users in other statuses
+// (e.g. invitees) may have no nickname yet or change while the test runs, so only active users are
+// used. It prefers a user linked to Slack so that the lookup by slack_user_key can be tested too.
 func testAccUserDataSourceExistingUser(t *testing.T) waroom.User {
 	t.Helper()
 
-	client, err := waroom.NewClient(context.Background(),
-		waroom.WithBaseURL(os.Getenv(utils.WaroomAPIEndPointEnvName)),
-		waroom.WithAPIKey(os.Getenv(utils.WaroomAPIKeyEnvName)),
-	)
-	if err != nil {
-		t.Fatalf("creating Waroom client: %s", err)
-	}
-
+	client := testAccWaroomClient(t)
 	users, err := client.Users.List(context.Background(), waroom.ListUsersParams{})
 	if err != nil {
 		t.Fatalf("listing users: %s", err)
 	}
-	if len(users) == 0 {
-		t.Skip("the test organization has no users")
+
+	var active []waroom.User
+	for _, u := range users {
+		if u.Status == "active" && u.Nickname != "" {
+			active = append(active, u)
+		}
+	}
+	if len(active) == 0 {
+		t.Skip("the test organization has no active users")
 	}
 
-	for _, u := range users {
+	for _, u := range active {
 		if !u.SlackUser.Null {
 			return u
 		}
 	}
-	return users[0]
+	return active[0]
 }
 
 func TestAccUserDataSource(t *testing.T) {
@@ -141,6 +167,12 @@ data "waroom_user" "test" {
 		},
 		{
 			Config:      testAccUserDataSourceConfig("nickname", acctest.RandomWithPrefix("tf-acc-missing")),
+			ExpectError: regexp.MustCompile(`User Not Found`),
+		},
+		// Runs even when no user is linked to Slack: an ignored slack_user_key filter would return
+		// other users, which the data source must not mistake for a match.
+		{
+			Config:      testAccUserDataSourceConfig("slack_user_key", "U"+acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)),
 			ExpectError: regexp.MustCompile(`User Not Found`),
 		},
 		{

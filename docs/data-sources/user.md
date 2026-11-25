@@ -48,16 +48,17 @@ resource "waroom_on_call_team" "platform" {
   ]
 
   lifecycle {
-    # Only users who have verified their phone number can join a rotation.
+    # Lookups also return deactivated users and invitees, and only users who have
+    # verified their phone number can join a rotation.
     precondition {
-      condition     = data.waroom_user.alice.phone_verified
-      error_message = "User ${data.waroom_user.alice.nickname} has not verified a phone number."
+      condition     = data.waroom_user.alice.status == "active" && data.waroom_user.alice.phone_verified
+      error_message = "User ${data.waroom_user.alice.nickname} is not active or has not verified a phone number."
     }
   }
 }
 
 # Build an on-call rotation from Slack user IDs instead of hard-coding subs.
-# Only users who have verified their phone number can join a rotation,
+# Only active users who have verified their phone number can join a rotation,
 # so fail at plan time when one of them has not.
 locals {
   sre_slack_user_keys = ["U0123ABCD", "U0456EFGH"]
@@ -69,8 +70,8 @@ data "waroom_user" "sre" {
 
   lifecycle {
     postcondition {
-      condition     = self.phone_verified
-      error_message = "User ${self.nickname} has not verified a phone number and cannot join an on-call rotation."
+      condition     = self.status == "active" && self.phone_verified
+      error_message = "User ${self.nickname} is not active or has not verified a phone number, so cannot join an on-call rotation."
     }
   }
 }
@@ -106,4 +107,4 @@ resource "waroom_on_call_team" "sre" {
 - `id` (String) User ID. This is an alias for `sub`.
 - `phone_verified` (Boolean) Whether the user's phone number is verified. Only verified users can be added to on-call rotations.
 - `picture` (String) The URL of the user's profile picture.
-- `status` (String) The user's status: `active`, `inactive`, `invited`, `invitation_pending`, `invitation_failed` or `deactivated`.
+- `status` (String) The user's status: `active`, `inactive`, `invited`, `invitation_pending`, `invitation_failed` or `deactivated`. Users in every status can be looked up, so check that the user is `active` before adding them to an on-call rotation.
