@@ -1,5 +1,8 @@
 name: Test
 
+# The test jobs run PR code with no App secrets. The private waroom-client-go module
+# is fetched by download-modules.yaml and served to them via GOPROXY (file://).
+
 on:
   workflow_dispatch:
     inputs:
@@ -16,31 +19,32 @@ permissions:
   contents: read
 
 env:
-  GOPRIVATE: github.com/topotal/waroom-client-go
+  GOFLAGS: -mod=readonly
 
 jobs:
+  download:
+    # The App secrets are not available to PRs from forks.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    uses: ./.github/workflows/download-modules.yaml
+    secrets: inherit
+
   unit-test:
+    needs: download
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - id: app-token
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
-        with:
-          client-id: ${{ vars.WAROOM_ECOSYSTEM_APP_CLIENT_ID }}
-          private-key: ${{ secrets.WAROOM_ECOSYSTEM_APP_PRIVATE_KEY }}
-          owner: topotal
-          repositories: waroom-client-go
-          permission-contents: read
-      - name: Allow go to fetch waroom-client-go
-        env:
-          TOKEN: ${{ steps.app-token.outputs.token }}
-        run: git config --global url."https://x-access-token:${TOKEN}@github.com/topotal/waroom-client-go".insteadOf "https://github.com/topotal/waroom-client-go"
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
         with:
           go-version-file: go.mod
           cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: goproxy
+          path: ${{ runner.temp }}/goproxy
+      - name: Serve modules only from the downloaded cache
+        run: echo "GOPROXY=file://${RUNNER_TEMP}/goproxy" >> "$GITHUB_ENV"
       # Compiling the dependencies (mostly the generated waroom-client-go) dominates
       # the first build step. The build cache is content-addressed, so a stale entry
       # is never used. Only pushes to main save it, so PR code cannot poison it.
@@ -63,6 +67,7 @@ jobs:
           key: go-build-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.sha }}
 
   acceptance-test:
+    needs: download
     runs-on: ubuntu-latest
     if: github.event.inputs.run_acceptance_tests == 'true'
     steps:
@@ -73,22 +78,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - id: app-token
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
-        with:
-          client-id: ${{ vars.WAROOM_ECOSYSTEM_APP_CLIENT_ID }}
-          private-key: ${{ secrets.WAROOM_ECOSYSTEM_APP_PRIVATE_KEY }}
-          owner: topotal
-          repositories: waroom-client-go
-          permission-contents: read
-      - name: Allow go to fetch waroom-client-go
-        env:
-          TOKEN: ${{ steps.app-token.outputs.token }}
-        run: git config --global url."https://x-access-token:${TOKEN}@github.com/topotal/waroom-client-go".insteadOf "https://github.com/topotal/waroom-client-go"
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
         with:
           go-version-file: go.mod
           cache: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: goproxy
+          path: ${{ runner.temp }}/goproxy
+      - name: Serve modules only from the downloaded cache
+        run: echo "GOPROXY=file://${RUNNER_TEMP}/goproxy" >> "$GITHUB_ENV"
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
           version: 3.54.0

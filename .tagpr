@@ -16,6 +16,9 @@
 #   tagpr.release
 #       "draft" lets the release job (GoReleaser) attach the signed assets to tagpr's draft
 #       and publish it. The Terraform Registry ignores draft releases.
+#
+# Do not set tagpr.command / tagpr.postVersionCommand: the tagpr job holds the App token
+# and must not run repository code.
 [tagpr]
 	releaseBranch = main
 	versionFile = -
