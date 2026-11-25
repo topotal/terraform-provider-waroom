@@ -138,6 +138,7 @@ func (p *WaroomProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewServiceIncidentDocumentTemplateResource,
 		NewIncidentDescriptionTemplateResource,
 		NewServiceRunbookRuleResource,
+		NewOnCallTeamResource,
 	}
 }
 
