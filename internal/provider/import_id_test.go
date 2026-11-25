@@ -29,3 +29,20 @@ func TestParseServiceScopedImportID(t *testing.T) {
 		}
 	}
 }
+
+func TestParseUUIDImportID(t *testing.T) {
+	const id = "123e4567-e89b-12d3-a456-426614174000"
+
+	// Other UUID spellings are normalized to the canonical form the API returns.
+	for _, in := range []string{id, strings.ToUpper(id), "{" + id + "}", "urn:uuid:" + id} {
+		if got, err := parseUUIDImportID(in); err != nil || got != id {
+			t.Errorf("parseUUIDImportID(%q) = (%q, %v), want (%q, nil)", in, got, err, id)
+		}
+	}
+
+	for _, in := range []string{"", "SRE", "not-a-uuid", "my-service," + id} {
+		if _, err := parseUUIDImportID(in); err == nil {
+			t.Errorf("expected an error for %q", in)
+		}
+	}
+}

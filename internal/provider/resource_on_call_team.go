@@ -483,8 +483,14 @@ func (r *OnCallTeamResource) Delete(ctx context.Context, req resource.DeleteRequ
 //
 //	terraform import waroom_on_call_team.example 123e4567-e89b-12d3-a456-426614174000
 func (r *OnCallTeamResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("uuid"), req, resp)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+	id, err := parseUUIDImportID(req.ID)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid Import ID", err.Error())
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("uuid"), id)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
 }
 
 // onCallTeamRotationsRequest builds the rotations of a create / update request from the planned rotations.
