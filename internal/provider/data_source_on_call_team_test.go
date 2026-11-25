@@ -27,7 +27,7 @@ func TestAccOnCallTeamDataSource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() {
 			testAccPreCheck(t)
-			// There is no waroom_on_call_team resource yet, so create the team with the client.
+			// Create the team with the client so that the data source is tested independently of the resource.
 			testAccCreateOnCallTeam(t, name, color)
 		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
