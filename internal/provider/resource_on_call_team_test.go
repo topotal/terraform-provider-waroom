@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,7 +12,10 @@ import (
 	"testing"
 	"time"
 
+	fwresource "github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-testing/compare"
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -86,6 +90,82 @@ func TestOnCallTeamStartedAt(t *testing.T) {
 				t.Errorf("onCallTeamStartedAt() = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+// A rotation that is unknown as a whole at plan time is skipped, while the known ones are still checked.
+func TestOnCallTeamResource_ValidateConfigUnknownRotation(t *testing.T) {
+	ctx := context.Background()
+	r := &OnCallTeamResource{}
+	var schemaResp fwresource.SchemaResponse
+	r.Schema(ctx, fwresource.SchemaRequest{}, &schemaResp)
+	s := schemaResp.Schema
+
+	teamType := s.Type().TerraformType(ctx).(tftypes.Object)
+	listType := teamType.AttributeTypes["rotations"].(tftypes.List)
+	rotType := listType.ElementType.(tftypes.Object)
+
+	rotationAttrs := map[string]tftypes.Value{}
+	for name, typ := range rotType.AttributeTypes {
+		rotationAttrs[name] = tftypes.NewValue(typ, nil)
+	}
+	rotationAttrs["timezone"] = tftypes.NewValue(tftypes.String, "Asia/Tokyo")
+	rotationAttrs["started_at"] = tftypes.NewValue(tftypes.String, "2026-01-05T10:00:00+09:00")
+	rotationAttrs["shift_handoff_time"] = tftypes.NewValue(tftypes.String, "10:00")
+	// interval_days defaults to 7, so shift_handoff_wday is missing.
+	invalid := tftypes.NewValue(rotType, rotationAttrs)
+
+	raw := tftypes.NewValue(teamType, map[string]tftypes.Value{
+		"id":    tftypes.NewValue(tftypes.String, nil),
+		"uuid":  tftypes.NewValue(tftypes.String, nil),
+		"name":  tftypes.NewValue(tftypes.String, "SRE"),
+		"color": tftypes.NewValue(tftypes.String, "FF0000"),
+		"rotations": tftypes.NewValue(listType, []tftypes.Value{
+			tftypes.NewValue(rotType, tftypes.UnknownValue),
+			invalid,
+		}),
+	})
+
+	var resp fwresource.ValidateConfigResponse
+	r.ValidateConfig(ctx, fwresource.ValidateConfigRequest{Config: tfsdk.Config{Schema: s, Raw: raw}}, &resp)
+
+	errs := resp.Diagnostics.Errors()
+	if len(errs) != 1 || !strings.Contains(errs[0].Detail(), "shift_handoff_wday is required") {
+		t.Fatalf("want only the shift_handoff_wday error for rotations[1], got: %v", resp.Diagnostics)
+	}
+}
+
+// In read, prior rotations are matched by UUID, so a rotation added outside Terraform in front of the
+// existing ones does not make them lose their configured started_at.
+func TestOnCallTeamStateFromAPI_ReadMatchesRotationsByUUID(t *testing.T) {
+	const uuidA, uuidB, uuidNew = "00000000-0000-4000-8000-00000000000a", "00000000-0000-4000-8000-00000000000b", "00000000-0000-4000-8000-0000000000ff"
+	rotation := func(uuid string, position int) string {
+		return fmt.Sprintf(`{"uuid":%q,"position":%d,"timezone":"Asia/Tokyo","started_at":"2026-01-05T10:00:00+09:00",
+			"interval_days":7,"shift_handoff_wday":1,"shift_handoff_time":"10:00","time_slots":[],"participants":[],"on_duty_participant":null}`, uuid, position)
+	}
+	body := fmt.Sprintf(`{"uuid":"00000000-0000-4000-8000-000000000001","name":"SRE","color":"FF0000","rotation":null,
+		"rotations":[%s,%s,%s],"on_duty_participant":null}`, rotation(uuidNew, 0), rotation(uuidA, 1), rotation(uuidB, 2))
+	var team waroom.OnCallTeam
+	if err := json.Unmarshal([]byte(body), &team); err != nil {
+		t.Fatalf("unmarshal team: %s", err)
+	}
+
+	const configuredA, configuredB = "2026-01-08T00:30:00+09:00", "2026-01-06T12:00:00+09:00"
+	prior := []OnCallTeamRotationModel{
+		{UUID: types.StringValue(uuidA), StartedAt: types.StringValue(configuredA)},
+		{UUID: types.StringValue(uuidB), StartedAt: types.StringValue(configuredB)},
+	}
+	recorded := map[string]time.Time{uuidA: team.Rotations[1].StartedAt, uuidB: team.Rotations[2].StartedAt}
+
+	state, _, diags := onCallTeamStateFromAPI(context.Background(), &team, prior, recorded, false)
+	if diags.HasError() {
+		t.Fatalf("onCallTeamStateFromAPI: %v", diags)
+	}
+	want := []string{"2026-01-05T10:00:00+09:00", configuredA, configuredB}
+	for i, w := range want {
+		if got := state.Rotations[i].StartedAt.ValueString(); got != w {
+			t.Errorf("rotations[%d].started_at = %q, want %q", i, got, w)
+		}
 	}
 }
 
