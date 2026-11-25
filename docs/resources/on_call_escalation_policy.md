@@ -4,11 +4,14 @@ page_title: "waroom_on_call_escalation_policy Resource - waroom"
 subcategory: ""
 description: |-
   Manages a Waroom on-call escalation policy. An escalation policy defines which on-call teams are called, in which order, and on which days and times.
+  ~> Note: Waroom does not allow deleting an escalation policy that has a call history. Destroying such a policy fails; remove it from the state with terraform state rm instead. Deleting a policy also deletes the on-call triggers that are connected only to it.
 ---
 
 # waroom_on_call_escalation_policy (Resource)
 
 Manages a Waroom on-call escalation policy. An escalation policy defines which on-call teams are called, in which order, and on which days and times.
+
+~> **Note:** Waroom does not allow deleting an escalation policy that has a call history. Destroying such a policy fails; remove it from the state with `terraform state rm` instead. Deleting a policy also deletes the on-call triggers that are connected only to it.
 
 ## Example Usage
 
