@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -335,7 +334,7 @@ func (r *ServiceRunbookRuleResource) Delete(ctx context.Context, req resource.De
 //
 //	terraform import waroom_service_runbook_rule.example my-service,123e4567-e89b-12d3-a456-426614174000
 func (r *ServiceRunbookRuleResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	serviceName, id, err := parseServiceRunbookRuleImportID(req.ID)
+	serviceName, id, err := parseServiceScopedImportID(req.ID)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid Import ID", err.Error())
 		return
@@ -344,20 +343,6 @@ func (r *ServiceRunbookRuleResource) ImportState(ctx context.Context, req resour
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("service_name"), serviceName)...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("uuid"), id)...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
-}
-
-// parseServiceRunbookRuleImportID splits an import ID of the form "service_name,uuid".
-// The UUID is returned in canonical form (lowercase, hyphenated), as the API returns it.
-func parseServiceRunbookRuleImportID(importID string) (string, string, error) {
-	parts := strings.Split(importID, ",")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", fmt.Errorf("expected import ID format: service_name,uuid. Got: %s", importID)
-	}
-	id, err := uuid.Parse(parts[1])
-	if err != nil {
-		return "", "", fmt.Errorf("the UUID part of the import ID is not valid: %s", err)
-	}
-	return parts[0], id.String(), nil
 }
 
 // serviceRunbookRuleNamespaceValidators applies the runbook namespace rule shared with the waroom_runbook
