@@ -123,7 +123,10 @@ func (r *OnCallEscalationPolicyResource) Schema(_ context.Context, _ resource.Sc
 
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages a Waroom on-call escalation policy. " +
-			"An escalation policy defines which on-call teams are called, in which order, and on which days and times.",
+			"An escalation policy defines which on-call teams are called, in which order, and on which days and times.\n\n" +
+			"~> **Note:** Waroom does not allow deleting an escalation policy that has a call history. " +
+			"Destroying such a policy fails; remove it from the state with `terraform state rm` instead. " +
+			"Deleting a policy also deletes the on-call triggers that are connected only to it.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -294,7 +297,7 @@ func (r *OnCallEscalationPolicyResource) Create(ctx context.Context, req resourc
 	// The create response has the same shape as the get response.
 	policy, err := toOnCallEscalationPolicy(created)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("CreateOnCallEscalationPolicy, unexpected response: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("CreateOnCallEscalationPolicy created the escalation policy %s but returned an unexpected response: %s. Import it with this UUID to manage it.", created.UUID, err))
 		return
 	}
 
@@ -343,8 +346,9 @@ func (r *OnCallEscalationPolicyResource) Read(ctx context.Context, req resource.
 
 // Update updates the resource and sets the updated Terraform state on success.
 //
-// Every attribute is sent, so that steps and time_slots are replaced as a whole and
-// call_depth is reset to unlimited when it is removed from the configuration.
+// The scalar attributes are always sent, so that call_depth is reset to unlimited when it is removed
+// from the configuration. steps and time_slots are sent only when they changed, because the API
+// replaces them as a whole.
 func (r *OnCallEscalationPolicyResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var plan OnCallEscalationPolicyResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -365,9 +369,6 @@ func (r *OnCallEscalationPolicyResource) Update(ctx context.Context, req resourc
 	ureq := waroom.UpdateOnCallEscalationPolicyReq{
 		Name:     waroom.NewOptString(plan.Name.ValueString()),
 		Timezone: waroom.NewOptString(plan.Timezone.ValueString()),
-		// Non-nil so that an empty list is sent and clears the steps.
-		Steps:     make([]waroom.UpdateOnCallEscalationPolicyStep, 0, len(steps)),
-		TimeSlots: make([]waroom.UpdateOnCallEscalationPolicyTimeSlot, 0, len(timeSlots)),
 	}
 	if plan.CallDepth.IsNull() {
 		ureq.CallDepth.SetToNull()
@@ -375,18 +376,26 @@ func (r *OnCallEscalationPolicyResource) Update(ctx context.Context, req resourc
 		ureq.CallDepth.SetTo(int(plan.CallDepth.ValueInt64()))
 	}
 	ureq.CallTraversal.SetTo(waroom.UpdateOnCallEscalationPolicyCallTraversal(plan.CallTraversal.ValueString()))
-	for _, step := range steps {
-		s := waroom.UpdateOnCallEscalationPolicyStep{TeamUUID: step.TeamUUID.ValueString()}
-		s.StepType.SetTo(waroom.UpdateOnCallEscalationPolicyStepType(step.StepType.ValueString()))
-		s.SimultaneousCall.SetTo(step.SimultaneousCall.ValueBool())
-		ureq.Steps = append(ureq.Steps, s)
+	// The API recreates every step / time slot when the list is sent, so send them only when they changed.
+	// A non-nil empty slice is sent as [] and clears the steps.
+	if !plan.Steps.Equal(state.Steps) {
+		ureq.Steps = make([]waroom.UpdateOnCallEscalationPolicyStep, 0, len(steps))
+		for _, step := range steps {
+			s := waroom.UpdateOnCallEscalationPolicyStep{TeamUUID: step.TeamUUID.ValueString()}
+			s.StepType.SetTo(waroom.UpdateOnCallEscalationPolicyStepType(step.StepType.ValueString()))
+			s.SimultaneousCall.SetTo(step.SimultaneousCall.ValueBool())
+			ureq.Steps = append(ureq.Steps, s)
+		}
 	}
-	for _, slot := range timeSlots {
-		ureq.TimeSlots = append(ureq.TimeSlots, waroom.UpdateOnCallEscalationPolicyTimeSlot{
-			DayOfWeek: int(slot.DayOfWeek.ValueInt64()),
-			StartTime: slot.StartTime.ValueString(),
-			EndTime:   slot.EndTime.ValueString(),
-		})
+	if !plan.TimeSlots.Equal(state.TimeSlots) {
+		ureq.TimeSlots = make([]waroom.UpdateOnCallEscalationPolicyTimeSlot, 0, len(timeSlots))
+		for _, slot := range timeSlots {
+			ureq.TimeSlots = append(ureq.TimeSlots, waroom.UpdateOnCallEscalationPolicyTimeSlot{
+				DayOfWeek: int(slot.DayOfWeek.ValueInt64()),
+				StartTime: slot.StartTime.ValueString(),
+				EndTime:   slot.EndTime.ValueString(),
+			})
+		}
 	}
 
 	updated, err := r.client.OnCallEscalationPolicies.Update(ctx, ureq, waroom.UpdateOnCallEscalationPolicyParams{UUID: state.UUID.ValueString()})
@@ -429,6 +438,16 @@ func (r *OnCallEscalationPolicyResource) Delete(ctx context.Context, req resourc
 	if err != nil {
 		var apiErr *waroom.APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+			return
+		}
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusUnprocessableEntity {
+			resp.Diagnostics.AddError(
+				"Unable to Delete On-Call Escalation Policy",
+				fmt.Sprintf("Waroom refused to delete the on-call escalation policy %s: %s\n\n"+
+					"An escalation policy that has a call history cannot be deleted. "+
+					"To stop managing it with Terraform, remove it from the state with `terraform state rm`.",
+					state.UUID.ValueString(), err),
+			)
 			return
 		}
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("DeleteOnCallEscalationPolicy, got error: %s", err))

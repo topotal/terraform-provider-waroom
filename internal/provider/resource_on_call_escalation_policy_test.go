@@ -175,6 +175,23 @@ func TestAccOnCallEscalationPolicyResource(t *testing.T) {
 	team2 := testAccEscalationPolicyCreateTeam(t, client, acctest.RandomWithPrefix("tf-acc"))
 	name := acctest.RandomWithPrefix("tf-acc")
 	updatedName := acctest.RandomWithPrefix("tf-acc")
+	renamedName := acctest.RandomWithPrefix("tf-acc")
+	updatedBody := fmt.Sprintf(`
+  timezone       = "UTC"
+  call_depth     = 2
+  call_traversal = "breadth_first"
+
+  steps = [
+    { team_uuid = %[1]q, step_type = "primary" },
+    { team_uuid = %[2]q, step_type = "fallback", simultaneous_call = true },
+  ]
+
+  time_slots = [
+    { day_of_week = 0, start_time = "00:00", end_time = "23:59" },
+  ]
+`, team2.UUID, team1.UUID)
+	// The UUIDs of the steps and time slots after the update, to check that renaming does not recreate them.
+	var childUUIDs []string
 
 	const addr = "waroom_on_call_escalation_policy.test"
 
@@ -221,20 +238,8 @@ func TestAccOnCallEscalationPolicyResource(t *testing.T) {
 			},
 			// Update every attribute.
 			{
-				Config: testAccOnCallEscalationPolicyResourceConfig(updatedName, fmt.Sprintf(`
-  timezone       = "UTC"
-  call_depth     = 2
-  call_traversal = "breadth_first"
-
-  steps = [
-    { team_uuid = %[1]q, step_type = "primary" },
-    { team_uuid = %[2]q, step_type = "fallback", simultaneous_call = true },
-  ]
-
-  time_slots = [
-    { day_of_week = 0, start_time = "00:00", end_time = "23:59" },
-  ]
-`, team2.UUID, team1.UUID)),
+				Config: testAccOnCallEscalationPolicyResourceConfig(updatedName, updatedBody),
+				Check:  testAccCaptureOnCallEscalationPolicyChildUUIDs(client, addr, &childUUIDs),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("name"), knownvalue.StringExact(updatedName)),
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("timezone"), knownvalue.StringExact("UTC")),
@@ -257,9 +262,17 @@ func TestAccOnCallEscalationPolicyResource(t *testing.T) {
 					})),
 				},
 			},
+			// Changing only the name does not send steps / time_slots, so the API keeps them as they are.
+			{
+				Config: testAccOnCallEscalationPolicyResourceConfig(renamedName, updatedBody),
+				Check:  testAccCheckOnCallEscalationPolicyChildUUIDs(client, addr, &childUUIDs),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(addr, tfjsonpath.New("name"), knownvalue.StringExact(renamedName)),
+				},
+			},
 			// Removing the optional attributes resets them to their defaults.
 			{
-				Config: testAccOnCallEscalationPolicyResourceConfig(updatedName, `
+				Config: testAccOnCallEscalationPolicyResourceConfig(renamedName, `
   time_slots = [
     { day_of_week = 5, start_time = "18:00", end_time = "09:00" },
   ]
@@ -293,6 +306,52 @@ func testAccOnCallEscalationPolicyTimeSlot(dayOfWeek int64, startTime, endTime s
 		"start_time":  knownvalue.StringExact(startTime),
 		"end_time":    knownvalue.StringExact(endTime),
 	})
+}
+
+// testAccOnCallEscalationPolicyChildUUIDs returns the UUIDs of the steps and time slots of the policy in the state.
+func testAccOnCallEscalationPolicyChildUUIDs(client *waroom.Client, s *terraform.State, addr string) ([]string, error) {
+	rs, ok := s.RootModule().Resources[addr]
+	if !ok {
+		return nil, fmt.Errorf("resource %s not found in state", addr)
+	}
+	policy, err := client.OnCallEscalationPolicies.Get(context.Background(), waroom.GetOnCallEscalationPolicyParams{UUID: rs.Primary.Attributes["uuid"]})
+	if err != nil {
+		return nil, err
+	}
+	var uuids []string
+	for _, step := range policy.Steps {
+		uuids = append(uuids, step.UUID)
+	}
+	for _, slot := range policy.TimeSlots {
+		uuids = append(uuids, slot.UUID)
+	}
+	return uuids, nil
+}
+
+// testAccCaptureOnCallEscalationPolicyChildUUIDs stores the UUIDs of the steps and time slots in uuids.
+func testAccCaptureOnCallEscalationPolicyChildUUIDs(client *waroom.Client, addr string, uuids *[]string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		got, err := testAccOnCallEscalationPolicyChildUUIDs(client, s, addr)
+		if err != nil {
+			return err
+		}
+		*uuids = got
+		return nil
+	}
+}
+
+// testAccCheckOnCallEscalationPolicyChildUUIDs checks that the steps and time slots still have the UUIDs in uuids.
+func testAccCheckOnCallEscalationPolicyChildUUIDs(client *waroom.Client, addr string, uuids *[]string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		got, err := testAccOnCallEscalationPolicyChildUUIDs(client, s, addr)
+		if err != nil {
+			return err
+		}
+		if len(*uuids) == 0 || fmt.Sprint(got) != fmt.Sprint(*uuids) {
+			return fmt.Errorf("steps / time slots were recreated: before %v, after %v", *uuids, got)
+		}
+		return nil
+	}
 }
 
 // testAccCheckOnCallEscalationPolicyDestroy checks that every escalation policy in the state is gone.
