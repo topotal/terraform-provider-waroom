@@ -37,7 +37,7 @@ resource "waroom_runbook" "from_file" {
 
 ### Required
 
-- `blob` (String) Markdown content of the runbook.
+- `blob` (String) Markdown content of the runbook. An empty string is not allowed.
 - `namespace` (String) The path-style namespace of the runbook, e.g. `/api-server/recovery`. It must start with `/`, may contain only ASCII letters, digits, `_`, `-` and `/`, and is at most 255 characters. The root namespace `/` is not supported. Changing it renames the runbook in place.
 
 ### Read-Only

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -83,11 +82,14 @@ func (r *RunbookResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 					"may contain only ASCII letters, digits, `_`, `-` and `/`, and is at most 255 characters. " +
 					"The root namespace `/` is not supported. Changing it renames the runbook in place.",
 				Required:   true,
-				Validators: runbookResourceNamespaceValidators(),
+				Validators: runbookNamespaceWithSlashValidators(),
 			},
 			"blob": schema.StringAttribute{
-				MarkdownDescription: "Markdown content of the runbook.",
+				MarkdownDescription: "Markdown content of the runbook. An empty string is not allowed.",
 				Required:            true,
+				Validators: []validator.String{
+					stringvalidator.LengthAtLeast(1),
+				},
 			},
 			"created_at": schema.StringAttribute{
 				MarkdownDescription: "The time the runbook was created, in RFC 3339 format.",
@@ -189,7 +191,10 @@ func (r *RunbookResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	ureq := waroom.UpdateRunbookReq{Blob: waroom.NewOptString(plan.Blob.ValueString())}
+	var ureq waroom.UpdateRunbookReq
+	if plan.Blob.ValueString() != state.Blob.ValueString() {
+		ureq.Blob.SetTo(plan.Blob.ValueString())
+	}
 	if plan.Namespace.ValueString() != state.Namespace.ValueString() {
 		ureq.Namespace.SetTo(plan.Namespace.ValueString())
 	}
@@ -243,7 +248,7 @@ func (r *RunbookResource) Delete(ctx context.Context, req resource.DeleteRequest
 //
 //	terraform import waroom_runbook.example /api-server/recovery
 func (r *RunbookResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	namespace, ok := runbookImportNamespace(req.ID)
+	namespace, ok := runbookImportNamespace(ctx, req.ID)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Invalid Import ID",
@@ -264,20 +269,16 @@ func (m *RunbookResourceModel) setFromAPI(namespace, blob string, createdAt, upd
 	m.UpdatedAt = runbookTimeValue(updatedAt.Value, updatedAt.Set)
 }
 
-// runbookResourceNamespaceValidators extends the data source's namespace validators by requiring the leading slash.
-// The API returns namespaces with the leading slash, so a namespace without it would never match the state.
-func runbookResourceNamespaceValidators() []validator.String {
-	return append(runbookNamespaceValidators(),
-		stringvalidator.RegexMatches(regexp.MustCompile(`^/`), "must start with `/`, e.g. `/api-server/recovery`"),
-	)
-}
-
 // runbookImportNamespace normalizes an import ID to a namespace with a leading slash,
-// and reports whether it is a valid runbook namespace.
-func runbookImportNamespace(id string) (string, bool) {
+// and reports whether it is a valid namespace for the resource.
+func runbookImportNamespace(ctx context.Context, id string) (string, bool) {
 	namespace := "/" + runbookNamespaceParam(id)
-	if !regexp.MustCompile(`^/[A-Za-z0-9_-][A-Za-z0-9_/-]{0,253}$`).MatchString(namespace) {
-		return "", false
+	for _, v := range runbookNamespaceWithSlashValidators() {
+		var resp validator.StringResponse
+		v.ValidateString(ctx, validator.StringRequest{ConfigValue: types.StringValue(namespace)}, &resp)
+		if resp.Diagnostics.HasError() {
+			return "", false
+		}
 	}
 	return namespace, true
 }

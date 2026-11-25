@@ -152,6 +152,15 @@ func runbookNamespaceValidators() []validator.String {
 	}
 }
 
+// runbookNamespaceWithSlashValidators is runbookNamespaceValidators with the leading slash required,
+// for attributes compared with the namespace as the API stores it (waroom_runbook's namespace, and
+// waroom_service_runbook_rule's runbook_namespace, which the API looks up as given).
+func runbookNamespaceWithSlashValidators() []validator.String {
+	return append(runbookNamespaceValidators(),
+		stringvalidator.RegexMatches(regexp.MustCompile(`^/`), "must start with `/` (e.g. `/default`)"),
+	)
+}
+
 // runbookNamespaceParam converts a namespace to the form the runbook API expects in its path:
 // without the leading slash (e.g. "/api-server/recovery" -> "api-server/recovery").
 func runbookNamespaceParam(namespace string) string {

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
 	"time"
 
 	"github.com/google/uuid"
@@ -132,7 +131,7 @@ func (r *ServiceRunbookRuleResource) Schema(_ context.Context, _ resource.Schema
 				MarkdownDescription: "The namespace of the runbook to link, with the leading slash (e.g. `/default`, `/api-server/recovery`). " +
 					"The runbook must exist.",
 				Required:   true,
-				Validators: serviceRunbookRuleNamespaceValidators(),
+				Validators: runbookNamespaceWithSlashValidators(),
 			},
 			"created_at": schema.StringAttribute{
 				MarkdownDescription: "The time the runbook rule was created, in RFC 3339 format.",
@@ -343,18 +342,6 @@ func (r *ServiceRunbookRuleResource) ImportState(ctx context.Context, req resour
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("service_name"), serviceName)...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("uuid"), id)...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
-}
-
-// serviceRunbookRuleNamespaceValidators applies the runbook namespace rule shared with the waroom_runbook
-// data source, and additionally requires the leading slash: the runbook rule API looks the runbook up by
-// the namespace as given and answers "Runbook not found" without it.
-func serviceRunbookRuleNamespaceValidators() []validator.String {
-	return append(runbookNamespaceValidators(),
-		stringvalidator.RegexMatches(
-			regexp.MustCompile(`^/`),
-			"must start with `/` (e.g. `/default`)",
-		),
-	)
 }
 
 func (m *ServiceRunbookRuleResourceModel) setFromAPI(id uuid.UUID, pattern, target string, priority int, runbookNamespace string, createdAt, updatedAt time.Time) {

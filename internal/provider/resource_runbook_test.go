@@ -31,13 +31,13 @@ func TestRunbookImportNamespace(t *testing.T) {
 		strings.Repeat("a", 254): "/" + strings.Repeat("a", 254),
 	}
 	for in, want := range valid {
-		if got, ok := runbookImportNamespace(in); !ok || got != want {
+		if got, ok := runbookImportNamespace(context.Background(), in); !ok || got != want {
 			t.Errorf("runbookImportNamespace(%q) = (%q, %v), want (%q, true)", in, got, ok, want)
 		}
 	}
 
 	for _, in := range []string{"", "/", "//a", "/with space", "/v1.2", "/" + strings.Repeat("a", 255)} {
-		if got, ok := runbookImportNamespace(in); ok {
+		if got, ok := runbookImportNamespace(context.Background(), in); ok {
 			t.Errorf("runbookImportNamespace(%q) = (%q, true), want an invalid ID", in, got)
 		}
 	}
@@ -45,7 +45,7 @@ func TestRunbookImportNamespace(t *testing.T) {
 
 func TestRunbookResourceNamespaceValidators(t *testing.T) {
 	validate := func(raw string) bool {
-		for _, v := range runbookResourceNamespaceValidators() {
+		for _, v := range runbookNamespaceWithSlashValidators() {
 			var resp validator.StringResponse
 			v.ValidateString(context.Background(), validator.StringRequest{ConfigValue: types.StringValue(raw)}, &resp)
 			if resp.Diagnostics.HasError() {
@@ -110,6 +110,11 @@ func TestAccRunbookResource(t *testing.T) {
 				Config:      testAccRunbookResourceConfig(namespace[1:], blob),
 				ExpectError: regexp.MustCompile("must start with `/`"),
 			},
+			// An empty blob is rejected at plan time (the API answers 422)
+			{
+				Config:      testAccRunbookResourceConfig(namespace, ""),
+				ExpectError: regexp.MustCompile(`string length must be at least 1`),
+			},
 			// Update blob
 			{
 				Config: testAccRunbookResourceConfig(namespace, updatedBlob),
@@ -118,9 +123,9 @@ func TestAccRunbookResource(t *testing.T) {
 					statecheck.ExpectKnownValue(name, tfjsonpath.New("blob"), knownvalue.StringExact(updatedBlob)),
 				},
 			},
-			// Rename in place and update blob
+			// Rename in place; blob is unchanged
 			{
-				Config: testAccRunbookResourceConfig(renamed, blob),
+				Config: testAccRunbookResourceConfig(renamed, updatedBlob),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction(name, plancheck.ResourceActionUpdate),
@@ -130,7 +135,7 @@ func TestAccRunbookResource(t *testing.T) {
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(name, tfjsonpath.New("id"), knownvalue.StringExact(renamed)),
 					statecheck.ExpectKnownValue(name, tfjsonpath.New("namespace"), knownvalue.StringExact(renamed)),
-					statecheck.ExpectKnownValue(name, tfjsonpath.New("blob"), knownvalue.StringExact(blob)),
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("blob"), knownvalue.StringExact(updatedBlob)),
 				},
 				Check: testAccCheckRunbookGone(t, namespace),
 			},

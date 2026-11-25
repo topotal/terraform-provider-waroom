@@ -45,7 +45,7 @@ func TestServiceRunbookRuleNamespaceValidators(t *testing.T) {
 
 	validate := func(raw string) diag.Diagnostics {
 		var diags diag.Diagnostics
-		for _, v := range serviceRunbookRuleNamespaceValidators() {
+		for _, v := range runbookNamespaceWithSlashValidators() {
 			var resp validator.StringResponse
 			v.ValidateString(context.Background(), validator.StringRequest{ConfigValue: types.StringValue(raw)}, &resp)
 			diags.Append(resp.Diagnostics...)
