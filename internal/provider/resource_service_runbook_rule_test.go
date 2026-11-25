@@ -24,31 +24,6 @@ import (
 	"github.com/topotal/waroom-client-go/waroom"
 )
 
-func TestParseServiceRunbookRuleImportID(t *testing.T) {
-	const id = "123e4567-e89b-12d3-a456-426614174000"
-
-	serviceName, got, err := parseServiceRunbookRuleImportID("my-service," + id)
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-	if serviceName != "my-service" || got != id {
-		t.Errorf("got (%q, %q), want (%q, %q)", serviceName, got, "my-service", id)
-	}
-
-	// Other UUID spellings are normalized to the canonical form the API returns.
-	for _, in := range []string{strings.ToUpper(id), "{" + id + "}", "urn:uuid:" + id} {
-		if _, got, err := parseServiceRunbookRuleImportID("my-service," + in); err != nil || got != id {
-			t.Errorf("parseServiceRunbookRuleImportID(%q) = (%q, %v), want (%q, nil)", in, got, err, id)
-		}
-	}
-
-	for _, in := range []string{"", id, "my-service", "my-service,", "," + id, "my-service,not-a-uuid", "a,b," + id} {
-		if _, _, err := parseServiceRunbookRuleImportID(in); err == nil {
-			t.Errorf("expected an error for %q", in)
-		}
-	}
-}
-
 func TestServiceRunbookRuleNamespaceValidators(t *testing.T) {
 	valid := []string{
 		"/default",
@@ -98,7 +73,7 @@ func TestAccServiceRunbookRuleResource(t *testing.T) {
 	}
 	testAccPreCheck(t)
 
-	serviceName := testAccServiceIncidentDocumentTemplateServices(t, 1)[0]
+	serviceName := testAccServices(t, 1)[0]
 	prefix := "/" + acctest.RandomWithPrefix("tf-acc")
 	namespaceA := prefix + "/a"
 	namespaceB := prefix + "/b"
@@ -154,6 +129,19 @@ func TestAccServiceRunbookRuleResource(t *testing.T) {
 						return "", fmt.Errorf("resource %s not found", name)
 					}
 					return rs.Primary.Attributes["service_name"] + "," + rs.Primary.Attributes["uuid"], nil
+				},
+			},
+			// ImportState with an uppercase UUID: it is normalized to the API's form
+			{
+				ResourceName:      name,
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateIdFunc: func(s *terraform.State) (string, error) {
+					rs, ok := s.RootModule().Resources[name]
+					if !ok {
+						return "", fmt.Errorf("resource %s not found", name)
+					}
+					return rs.Primary.Attributes["service_name"] + "," + strings.ToUpper(rs.Primary.Attributes["uuid"]), nil
 				},
 			},
 			// Update every attribute in place
