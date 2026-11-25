@@ -50,14 +50,14 @@ resource "waroom_on_call_trigger" "disabled" {
 - `escalation_policy_uuids` (Set of String) The UUIDs of the escalation policies the trigger calls. At least one is required.
 - `name` (String) The name of the trigger.
 - `service_name` (String) The name of the service the trigger belongs to. Changing it moves the trigger to another service.
-- `severity_filters` (Set of String) The incident severities the trigger applies to: `critical`, `high`, `low`, `info` or `unknown`.
+- `severity_filters` (Set of String) The incident severities the trigger applies to: `critical`, `high`, `low`, `info` or `unknown`. An empty set (`[]`) matches every severity.
 
 ### Optional
 
 - `enabled` (Boolean) Whether the trigger is enabled. Defaults to `true`.
 - `event_type` (String) The event that fires the trigger. Currently only `incident_created`, which is the default.
 - `retry_count` (Number) How many times the escalation restarts from the beginning when no one responds (0 to 10). Defaults to `0`.
-- `source_filters` (Set of String) The incident sources the trigger applies to: `integration`, `slack` or `web`. Defaults to `["integration"]`.
+- `source_filters` (Set of String) The incident sources the trigger applies to: `integration`, `slack` or `web`. Defaults to `["integration"]`. At least one is required: Waroom accepts an empty set, but a trigger with no source never fires. Use `enabled = false` to stop a trigger instead.
 
 ### Read-Only
 
