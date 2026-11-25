@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-testing/compare"
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
@@ -169,31 +170,36 @@ func TestAccOnCallEscalationPolicyResource(t *testing.T) {
 	}
 	testAccPreCheck(t)
 
-	// There is no on-call team resource in this provider yet, so the teams are created with the client.
+	// Used only to look up the UUIDs of the steps / time slots, which the resource does not expose, and in CheckDestroy.
 	client := testAccOnCallEscalationPolicyClient(t)
-	team1 := testAccEscalationPolicyCreateTeam(t, client, acctest.RandomWithPrefix("tf-acc"))
-	team2 := testAccEscalationPolicyCreateTeam(t, client, acctest.RandomWithPrefix("tf-acc"))
+	team1Name := acctest.RandomWithPrefix("tf-acc")
+	team2Name := acctest.RandomWithPrefix("tf-acc")
 	name := acctest.RandomWithPrefix("tf-acc")
 	updatedName := acctest.RandomWithPrefix("tf-acc")
 	renamedName := acctest.RandomWithPrefix("tf-acc")
-	updatedBody := fmt.Sprintf(`
+	updatedBody := `
   timezone       = "UTC"
   call_depth     = 2
   call_traversal = "breadth_first"
 
   steps = [
-    { team_uuid = %[1]q, step_type = "primary" },
-    { team_uuid = %[2]q, step_type = "fallback", simultaneous_call = true },
+    { team_uuid = waroom_on_call_team.team2.uuid, step_type = "primary" },
+    { team_uuid = waroom_on_call_team.team1.uuid, step_type = "fallback", simultaneous_call = true },
   ]
 
   time_slots = [
     { day_of_week = 0, start_time = "00:00", end_time = "23:59" },
   ]
-`, team2.UUID, team1.UUID)
+`
 	// The UUIDs of the steps and time slots after the update, to check that renaming does not recreate them.
 	var childUUIDs []string
 
 	const addr = "waroom_on_call_escalation_policy.test"
+	const team1 = "waroom_on_call_team.team1"
+	const team2 = "waroom_on_call_team.team2"
+	stepTeamUUID := func(i int) tfjsonpath.Path {
+		return tfjsonpath.New("steps").AtSliceIndex(i).AtMapKey("team_uuid")
+	}
 
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -201,16 +207,16 @@ func TestAccOnCallEscalationPolicyResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create with defaults. time_slots are written out of the API's order to check they are a set.
 			{
-				Config: testAccOnCallEscalationPolicyResourceConfig(name, fmt.Sprintf(`
+				Config: testAccOnCallEscalationPolicyResourceConfig(team1Name, team2Name, name, `
   steps = [
-    { team_uuid = %[1]q },
+    { team_uuid = waroom_on_call_team.team1.uuid },
   ]
 
   time_slots = [
     { day_of_week = 3, start_time = "22:00", end_time = "02:00" },
     { day_of_week = 1, start_time = "09:00", end_time = "18:00" },
   ]
-`, team1.UUID)),
+`),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("id"), knownvalue.NotNull()),
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("uuid"), knownvalue.NotNull()),
@@ -220,11 +226,12 @@ func TestAccOnCallEscalationPolicyResource(t *testing.T) {
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("call_traversal"), knownvalue.StringExact("depth_first")),
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("steps"), knownvalue.ListExact([]knownvalue.Check{
 						knownvalue.ObjectExact(map[string]knownvalue.Check{
-							"team_uuid":         knownvalue.StringExact(team1.UUID),
+							"team_uuid":         knownvalue.NotNull(),
 							"step_type":         knownvalue.StringExact("primary"),
 							"simultaneous_call": knownvalue.Bool(false),
 						}),
 					})),
+					statecheck.CompareValuePairs(addr, stepTeamUUID(0), team1, tfjsonpath.New("uuid"), compare.ValuesSame()),
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("time_slots"), knownvalue.SetExact([]knownvalue.Check{
 						testAccOnCallEscalationPolicyTimeSlot(1, "09:00", "18:00"),
 						testAccOnCallEscalationPolicyTimeSlot(3, "22:00", "02:00"),
@@ -238,7 +245,7 @@ func TestAccOnCallEscalationPolicyResource(t *testing.T) {
 			},
 			// Update every attribute.
 			{
-				Config: testAccOnCallEscalationPolicyResourceConfig(updatedName, updatedBody),
+				Config: testAccOnCallEscalationPolicyResourceConfig(team1Name, team2Name, updatedName, updatedBody),
 				Check:  testAccCaptureOnCallEscalationPolicyChildUUIDs(client, addr, &childUUIDs),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("name"), knownvalue.StringExact(updatedName)),
@@ -247,16 +254,18 @@ func TestAccOnCallEscalationPolicyResource(t *testing.T) {
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("call_traversal"), knownvalue.StringExact("breadth_first")),
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("steps"), knownvalue.ListExact([]knownvalue.Check{
 						knownvalue.ObjectExact(map[string]knownvalue.Check{
-							"team_uuid":         knownvalue.StringExact(team2.UUID),
+							"team_uuid":         knownvalue.NotNull(),
 							"step_type":         knownvalue.StringExact("primary"),
 							"simultaneous_call": knownvalue.Bool(false),
 						}),
 						knownvalue.ObjectExact(map[string]knownvalue.Check{
-							"team_uuid":         knownvalue.StringExact(team1.UUID),
+							"team_uuid":         knownvalue.NotNull(),
 							"step_type":         knownvalue.StringExact("fallback"),
 							"simultaneous_call": knownvalue.Bool(true),
 						}),
 					})),
+					statecheck.CompareValuePairs(addr, stepTeamUUID(0), team2, tfjsonpath.New("uuid"), compare.ValuesSame()),
+					statecheck.CompareValuePairs(addr, stepTeamUUID(1), team1, tfjsonpath.New("uuid"), compare.ValuesSame()),
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("time_slots"), knownvalue.SetExact([]knownvalue.Check{
 						testAccOnCallEscalationPolicyTimeSlot(0, "00:00", "23:59"),
 					})),
@@ -264,7 +273,7 @@ func TestAccOnCallEscalationPolicyResource(t *testing.T) {
 			},
 			// Changing only the name does not send steps / time_slots, so the API keeps them as they are.
 			{
-				Config: testAccOnCallEscalationPolicyResourceConfig(renamedName, updatedBody),
+				Config: testAccOnCallEscalationPolicyResourceConfig(team1Name, team2Name, renamedName, updatedBody),
 				Check:  testAccCheckOnCallEscalationPolicyChildUUIDs(client, addr, &childUUIDs),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("name"), knownvalue.StringExact(renamedName)),
@@ -272,7 +281,7 @@ func TestAccOnCallEscalationPolicyResource(t *testing.T) {
 			},
 			// Removing the optional attributes resets them to their defaults.
 			{
-				Config: testAccOnCallEscalationPolicyResourceConfig(renamedName, `
+				Config: testAccOnCallEscalationPolicyResourceConfig(team1Name, team2Name, renamedName, `
   time_slots = [
     { day_of_week = 5, start_time = "18:00", end_time = "09:00" },
   ]
@@ -291,13 +300,41 @@ func TestAccOnCallEscalationPolicyResource(t *testing.T) {
 	})
 }
 
-func testAccOnCallEscalationPolicyResourceConfig(name, body string) string {
+// testAccOnCallEscalationPolicyResourceConfig declares two on-call teams (team1 and team2) for the steps
+// and the escalation policy with the given name and body.
+func testAccOnCallEscalationPolicyResourceConfig(team1Name, team2Name, name, body string) string {
 	return fmt.Sprintf(`
-resource "waroom_on_call_escalation_policy" "test" {
-  name = %[1]q
-%[2]s
+resource "waroom_on_call_team" "team1" {
+  name  = %[1]q
+  color = "FF0000"
+
+  rotations = [{
+    timezone           = "Asia/Tokyo"
+    started_at         = "2026-01-05T09:00:00+09:00"
+    shift_handoff_time = "09:00"
+    shift_handoff_wday = 1
+  }]
 }
-`, name, body)
+
+resource "waroom_on_call_team" "team2" {
+  # Creating two on-call teams at the same time makes the API return 500, so create them one by one.
+  depends_on = [waroom_on_call_team.team1]
+  name  = %[2]q
+  color = "1E90FF"
+
+  rotations = [{
+    timezone           = "Asia/Tokyo"
+    started_at         = "2026-01-05T09:00:00+09:00"
+    shift_handoff_time = "09:00"
+    shift_handoff_wday = 1
+  }]
+}
+
+resource "waroom_on_call_escalation_policy" "test" {
+  name = %[3]q
+%[4]s
+}
+`, team1Name, team2Name, name, body)
 }
 
 func testAccOnCallEscalationPolicyTimeSlot(dayOfWeek int64, startTime, endTime string) knownvalue.Check {
