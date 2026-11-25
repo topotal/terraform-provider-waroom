@@ -185,6 +185,17 @@ func TestAccOnCallTeamResource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckOnCallTeamDestroy(t),
 		Steps: []resource.TestStep{
+			// timezone must be an IANA time zone name
+			{
+				Config: testAccOnCallTeamResourceConfig(name, "1E90FF", `
+  rotations = [{
+    timezone           = "Tokyo"
+    started_at         = "2026-01-05T10:00:00+09:00"
+    shift_handoff_time = "10:00"
+    shift_handoff_wday = 1
+  }]`),
+				ExpectError: regexp.MustCompile(`must be an IANA time zone name`),
+			},
 			// shift_handoff_wday must fit interval_days
 			{
 				Config: testAccOnCallTeamResourceConfig(name, "1E90FF", `

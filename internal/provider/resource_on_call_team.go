@@ -175,7 +175,7 @@ func (r *OnCallTeamResource) Schema(_ context.Context, _ resource.SchemaRequest,
 								"`shift_handoff_time` and `time_slots` are interpreted in this timezone.",
 							Required: true,
 							Validators: []validator.String{
-								stringvalidator.LengthAtLeast(1),
+								wvalidator.Timezone(),
 							},
 						},
 						"started_at": schema.StringAttribute{
