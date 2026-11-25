@@ -317,7 +317,8 @@ resource "waroom_on_call_team" "team1" {
 }
 
 resource "waroom_on_call_team" "team2" {
-  # Creating two on-call teams at the same time makes the API return 500, so create them one by one.
+  # Creating two on-call teams at the same time makes the API return 500
+  # (https://github.com/topotal/waroom-client-go/issues/210), so create them one by one.
   depends_on = [waroom_on_call_team.team1]
   name  = %[2]q
   color = "1E90FF"
