@@ -116,6 +116,8 @@ func TestAccServiceNotificationSlackChannelResource(t *testing.T) {
 			ConfigStateChecks: []statecheck.StateCheck{
 				statecheck.ExpectKnownValue(name, tfjsonpath.New("id"), knownvalue.StringExact(serviceB)),
 				statecheck.ExpectKnownValue(name, tfjsonpath.New("service_name"), knownvalue.StringExact(serviceB)),
+				// CheckDestroy only sees serviceB, so check here that the replacement removed serviceA's channel.
+				expectNoServiceNotificationSlackChannel(t, serviceA),
 			},
 		},
 	)
@@ -131,25 +133,45 @@ func TestAccServiceNotificationSlackChannelResource(t *testing.T) {
 // testAccCheckServiceNotificationSlackChannelDestroy expects no channel to be set on the service (404).
 func testAccCheckServiceNotificationSlackChannelDestroy(t *testing.T) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		client := testAccWaroomClient(t)
 		for _, rs := range s.RootModule().Resources {
 			if rs.Type != "waroom_service_notification_slack_channel" {
 				continue
 			}
-			serviceName := rs.Primary.Attributes["service_name"]
-			_, err := client.Services.GetNotificationSlackChannel(context.Background(),
-				waroom.GetServiceNotificationSlackChannelParams{Name: serviceName})
-			var apiErr *waroom.APIError
-			if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
-				continue
+			if err := testAccCheckNoServiceNotificationSlackChannel(t, rs.Primary.Attributes["service_name"]); err != nil {
+				return err
 			}
-			if err != nil {
-				return fmt.Errorf("get notification slack channel of %s: %w", serviceName, err)
-			}
-			return fmt.Errorf("notification slack channel of %s still exists", serviceName)
 		}
 		return nil
 	}
+}
+
+// testAccCheckNoServiceNotificationSlackChannel returns an error unless the service has no channel (404).
+func testAccCheckNoServiceNotificationSlackChannel(t *testing.T, serviceName string) error {
+	_, err := testAccWaroomClient(t).Services.GetNotificationSlackChannel(context.Background(),
+		waroom.GetServiceNotificationSlackChannelParams{Name: serviceName})
+	var apiErr *waroom.APIError
+	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("get notification slack channel of %s: %w", serviceName, err)
+	}
+	return fmt.Errorf("notification slack channel of %s still exists", serviceName)
+}
+
+// expectNoServiceNotificationSlackChannel is a state check that the service has no channel,
+// for a service that is no longer in the Terraform state.
+func expectNoServiceNotificationSlackChannel(t *testing.T, serviceName string) statecheck.StateCheck {
+	return noServiceNotificationSlackChannelCheck{t: t, serviceName: serviceName}
+}
+
+type noServiceNotificationSlackChannelCheck struct {
+	t           *testing.T
+	serviceName string
+}
+
+func (c noServiceNotificationSlackChannelCheck) CheckState(_ context.Context, _ statecheck.CheckStateRequest, resp *statecheck.CheckStateResponse) {
+	resp.Error = testAccCheckNoServiceNotificationSlackChannel(c.t, c.serviceName)
 }
 
 func testAccServiceNotificationSlackChannelResourceConfig(serviceName, channelID string) string {
