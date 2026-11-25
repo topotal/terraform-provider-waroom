@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/topotal/waroom-client-go/waroom"
 
@@ -261,13 +262,24 @@ func (r *OnCallTeamResource) ValidateConfig(ctx context.Context, req resource.Va
 		return
 	}
 
-	var models []OnCallTeamRotationModel
-	resp.Diagnostics.Append(rotations.ElementsAs(ctx, &models, false)...)
+	// Convert each rotation separately: a rotation can be unknown as a whole (e.g. chosen by a condition
+	// on another resource's attribute), and it is then checked at apply time instead.
+	var objects []types.Object
+	resp.Diagnostics.Append(rotations.ElementsAs(ctx, &objects, false)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	for i, m := range models {
+	for i, obj := range objects {
+		if obj.IsNull() || obj.IsUnknown() {
+			continue
+		}
+		var m OnCallTeamRotationModel
+		resp.Diagnostics.Append(obj.As(ctx, &m, basetypes.ObjectAsOptions{})...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
 		p := path.Root("rotations").AtListIndex(i)
 		if !m.StartedAt.IsNull() && !m.StartedAt.IsUnknown() {
 			if _, err := time.Parse(time.RFC3339, m.StartedAt.ValueString()); err != nil {
@@ -540,7 +552,9 @@ func toCreateOnCallTeamRotationReq(rot waroom.UpdateOnCallTeamRotationReq) waroo
 
 // onCallTeamStateFromAPI maps an on-call team to the resource model.
 //
-// prior is the planned (after create / update) or current (in read) rotations, matched by position.
+// prior is the planned rotations after create / update, matched by position (the plan has no UUID for an
+// added rotation, and the API returns the rotations in request order), or the current rotations in read,
+// matched by UUID (rotations added or reordered outside Terraform shift the positions).
 // It also returns the started_at values returned by the API, to be recorded in private state.
 // See onCallTeamStartedAt for how started_at is chosen.
 func onCallTeamStateFromAPI(
@@ -560,9 +574,19 @@ func onCallTeamStateFromAPI(
 	}
 	recorded := make(map[string]time.Time, len(team.Rotations))
 
+	priorByUUID := make(map[string]*OnCallTeamRotationModel, len(prior))
+	for i := range prior {
+		if !prior[i].UUID.IsNull() && !prior[i].UUID.IsUnknown() {
+			priorByUUID[prior[i].UUID.ValueString()] = &prior[i]
+		}
+	}
+
 	for i, rot := range team.Rotations {
 		var p *OnCallTeamRotationModel
-		if i < len(prior) {
+		switch {
+		case !afterWrite:
+			p = priorByUUID[rot.UUID]
+		case i < len(prior):
 			p = &prior[i]
 		}
 
