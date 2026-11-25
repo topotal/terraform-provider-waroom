@@ -103,8 +103,9 @@ func (d *UserDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 				Computed:            true,
 			},
 			"status": schema.StringAttribute{
-				MarkdownDescription: "The user's status: `active`, `inactive`, `invited`, `invitation_pending`, `invitation_failed` or `deactivated`.",
-				Computed:            true,
+				MarkdownDescription: "The user's status: `active`, `inactive`, `invited`, `invitation_pending`, `invitation_failed` or `deactivated`. " +
+					"Users in every status can be looked up, so check that the user is `active` before adding them to an on-call rotation.",
+				Computed: true,
 			},
 			"phone_verified": schema.BoolAttribute{
 				MarkdownDescription: "Whether the user's phone number is verified. Only verified users can be added to on-call rotations.",
@@ -129,58 +130,46 @@ func (d *UserDataSource) ConfigValidators(_ context.Context) []datasource.Config
 	}
 }
 
-// userFields holds the fields common to the get-user and list-users responses.
-type userFields struct {
-	sub           string
-	nickname      string
-	picture       string
-	status        string
-	slackUserKey  *string
-	phoneVerified bool
-	createdAt     time.Time
+// slackUserKey returns the key of the linked Slack user, or nil when the user is not linked to Slack.
+func slackUserKey(null bool, key string) *string {
+	if null {
+		return nil
+	}
+	return &key
 }
 
-func userFieldsFromDetail(u *waroom.UserDetail) userFields {
-	f := userFields{
-		sub:           u.Sub,
-		nickname:      u.Nickname,
-		picture:       u.Picture,
-		status:        string(u.Status),
-		phoneVerified: u.PhoneVerified,
-		createdAt:     u.CreatedAt,
-	}
-	if !u.SlackUser.Null {
-		key := u.SlackUser.Value.Key
-		f.slackUserKey = &key
-	}
-	return f
+// fill sets the model from a user. It takes the values one by one because the get-user and
+// list-users responses are different types with the same fields; adding a field to this
+// signature makes both call sites fail to compile until they pass it.
+func (m *UserDataSourceModel) fill(sub, nickname, picture, status string, slackUserKey *string, phoneVerified bool, createdAt time.Time) {
+	m.Id = types.StringValue(sub)
+	m.Sub = types.StringValue(sub)
+	m.Nickname = types.StringValue(nickname)
+	m.SlackUserKey = types.StringPointerValue(slackUserKey)
+	m.Picture = types.StringValue(picture)
+	m.Status = types.StringValue(status)
+	m.PhoneVerified = types.BoolValue(phoneVerified)
+	m.CreatedAt = types.StringValue(createdAt.Format(time.RFC3339))
 }
 
-func userFieldsFromListItem(u *waroom.User) userFields {
-	f := userFields{
-		sub:           u.Sub,
-		nickname:      u.Nickname,
-		picture:       u.Picture,
-		status:        string(u.Status),
-		phoneVerified: u.PhoneVerified,
-		createdAt:     u.CreatedAt,
+// matchUsers returns the users whose nickname or linked Slack user ID equals the configured one.
+// The list-users API already filters by these, but the result is checked again so that a filter
+// the API ignored or matched loosely (e.g. ignoring case) never returns a different user.
+func matchUsers(users []waroom.User, nickname, slackKey types.String) []waroom.User {
+	var matches []waroom.User
+	for _, u := range users {
+		switch {
+		case !nickname.IsNull():
+			if u.Nickname == nickname.ValueString() {
+				matches = append(matches, u)
+			}
+		case !slackKey.IsNull():
+			if !u.SlackUser.Null && u.SlackUser.Value.Key == slackKey.ValueString() {
+				matches = append(matches, u)
+			}
+		}
 	}
-	if !u.SlackUser.Null {
-		key := u.SlackUser.Value.Key
-		f.slackUserKey = &key
-	}
-	return f
-}
-
-func (m *UserDataSourceModel) fill(f userFields) {
-	m.Id = types.StringValue(f.sub)
-	m.Sub = types.StringValue(f.sub)
-	m.Nickname = types.StringValue(f.nickname)
-	m.SlackUserKey = types.StringPointerValue(f.slackUserKey)
-	m.Picture = types.StringValue(f.picture)
-	m.Status = types.StringValue(f.status)
-	m.PhoneVerified = types.BoolValue(f.phoneVerified)
-	m.CreatedAt = types.StringValue(f.createdAt.Format(time.RFC3339))
+	return matches
 }
 
 // Read refreshes the Terraform state with the latest data.
@@ -209,7 +198,8 @@ func (d *UserDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("GetUser, got error: %s", err))
 			return
 		}
-		data.fill(userFieldsFromDetail(user))
+		data.fill(user.Sub, user.Nickname, user.Picture, string(user.Status),
+			slackUserKey(user.SlackUser.Null, user.SlackUser.Value.Key), user.PhoneVerified, user.CreatedAt)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 		return
 	}
@@ -232,16 +222,19 @@ func (d *UserDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		return
 	}
 
-	switch len(users) {
+	matches := matchUsers(users, data.Nickname, data.SlackUserKey)
+	switch len(matches) {
 	case 0:
 		resp.Diagnostics.AddError("User Not Found", fmt.Sprintf("No Waroom user with %s was found.", lookupDesc))
 		return
 	case 1:
-		data.fill(userFieldsFromListItem(&users[0]))
+		u := matches[0]
+		data.fill(u.Sub, u.Nickname, u.Picture, string(u.Status),
+			slackUserKey(u.SlackUser.Null, u.SlackUser.Value.Key), u.PhoneVerified, u.CreatedAt)
 	default:
 		resp.Diagnostics.AddError(
 			"Multiple Users Found",
-			fmt.Sprintf("%d Waroom users with %s were found. Look the user up by `sub` instead.", len(users), lookupDesc),
+			fmt.Sprintf("Multiple Waroom users with %s were found. Look the user up by `sub` instead.", lookupDesc),
 		)
 		return
 	}
