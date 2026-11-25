@@ -13,9 +13,6 @@ concurrency:
   group: tagpr
   cancel-in-progress: false
 
-env:
-  GOPRIVATE: github.com/topotal/waroom-client-go
-
 jobs:
   tagpr:
     runs-on: ubuntu-latest
@@ -43,12 +40,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
-  release:
+  # The release job builds repository code, so it gets the private waroom-client-go module
+  # from this job's artifact instead of holding the App key.
+  download:
     needs: tagpr
     if: needs.tagpr.outputs.tag != ''
+    permissions:
+      contents: read
+    uses: ./.github/workflows/download-modules.yaml
+    secrets: inherit
+
+  release:
+    needs: [ tagpr, download ]
     runs-on: ubuntu-latest
     # The GPG signing key lives in this environment's secrets, which only main can use.
     environment: release
+    env:
+      GOFLAGS: -mod=readonly
     permissions:
       contents: write
       id-token: write
@@ -61,22 +69,16 @@ jobs:
           # GoReleaser needs the previous tags.
           fetch-depth: 0
           persist-credentials: false
-      - id: app-token
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
-        with:
-          client-id: ${{ vars.WAROOM_ECOSYSTEM_APP_CLIENT_ID }}
-          private-key: ${{ secrets.WAROOM_ECOSYSTEM_APP_PRIVATE_KEY }}
-          owner: topotal
-          repositories: waroom-client-go
-          permission-contents: read
-      - name: Allow go to fetch waroom-client-go
-        env:
-          TOKEN: ${{ steps.app-token.outputs.token }}
-        run: git config --global url."https://x-access-token:${TOKEN}@github.com/topotal/waroom-client-go".insteadOf "https://github.com/topotal/waroom-client-go"
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
         with:
           go-version-file: go.mod
           cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: goproxy
+          path: ${{ runner.temp }}/goproxy
+      - name: Serve modules only from the downloaded cache
+        run: echo "GOPROXY=file://${RUNNER_TEMP}/goproxy" >> "$GITHUB_ENV"
       # Until the GPG key is registered, release without signing. The Terraform Registry
       # does not ingest unsigned releases, so register it before publishing there.
       # TODO: When the repository becomes public, make signing required: register the key,

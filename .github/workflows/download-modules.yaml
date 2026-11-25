@@ -1,0 +1,54 @@
+name: Download modules
+
+# waroom-client-go is private, so its module is fetched with the waroom
+# ecosystem App token. To keep the App private key away from repository code,
+# this workflow runs no repository code: it only downloads the modules pinned
+# in go.mod and uploads the module cache as the "goproxy" artifact.
+#
+# Callers download that artifact and point GOPROXY at it (file://), so the
+# jobs that build the code need no secrets.
+#
+# Once waroom-client-go becomes public, this workflow can be dropped.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - id: app-token
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.WAROOM_ECOSYSTEM_APP_CLIENT_ID }}
+          private-key: ${{ secrets.WAROOM_ECOSYSTEM_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: waroom-client-go
+          permission-contents: read
+
+      - id: download
+        env:
+          GOPRIVATE: github.com/topotal/*
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          git config --global url."https://x-access-token:${APP_TOKEN}@github.com/topotal/".insteadOf "https://github.com/topotal/"
+          go mod download
+          echo "dir=$(go env GOMODCACHE)/cache/download" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: goproxy
+          path: ${{ steps.download.outputs.dir }}
+          retention-days: 1
