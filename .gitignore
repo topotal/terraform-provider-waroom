@@ -42,7 +42,8 @@ go.work.sum
 .claude/worktrees/
 
 # Per-developer acceptance test environment (see .env.e2e.example)
-.env.e2e
+.env.e2e*
+!.env.e2e.example
 
 # Per-developer scratch space, including the playground created by `task playground`
 /temp/
