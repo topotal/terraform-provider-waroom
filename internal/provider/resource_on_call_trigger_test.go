@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -43,7 +44,7 @@ func TestNewOnCallTriggerResourceModel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("toOnCallTrigger: %v", err)
 	}
-	got, diags := newOnCallTriggerResourceModel(trigger)
+	got, diags := newOnCallTriggerResourceModel(context.Background(), trigger)
 	if diags.HasError() {
 		t.Fatalf("unexpected diagnostics: %v", diags)
 	}
@@ -79,7 +80,7 @@ func TestNewOnCallTriggerResourceModel(t *testing.T) {
 }
 
 func TestNewOnCallTriggerResourceModel_Empty(t *testing.T) {
-	got, diags := newOnCallTriggerResourceModel(&waroom.OnCallTrigger{UUID: "x", Name: "n"})
+	got, diags := newOnCallTriggerResourceModel(context.Background(), &waroom.OnCallTrigger{UUID: "x", Name: "n"})
 	if diags.HasError() {
 		t.Fatalf("unexpected diagnostics: %v", diags)
 	}
@@ -187,6 +188,28 @@ func TestAccOnCallTriggerResource(t *testing.T) {
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("source_filters"), stringSet("integration")),
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("enabled"), knownvalue.Bool(false)),
 					statecheck.ExpectKnownValue(addr, tfjsonpath.New("retry_count"), knownvalue.Int64Exact(0)),
+				},
+			},
+			// An empty source_filters is rejected, because Waroom would never fire the trigger.
+			// Not the last step: the post-test destroy uses the last config, which must be valid.
+			{
+				Config: testAccOnCallTriggerResourceConfig(policy1Name, policy2Name, updatedName, services[1], `
+  escalation_policy_uuids = [waroom_on_call_escalation_policy.policy2.uuid]
+  severity_filters        = []
+  source_filters          = []
+  enabled                 = false
+`),
+				ExpectError: regexp.MustCompile(`Attribute source_filters set must contain at least 1 elements`),
+			},
+			// An empty severity_filters is valid (it matches every severity) and is kept as an empty set.
+			{
+				Config: testAccOnCallTriggerResourceConfig(policy1Name, policy2Name, updatedName, services[1], `
+  escalation_policy_uuids = [waroom_on_call_escalation_policy.policy2.uuid]
+  severity_filters        = []
+  enabled                 = false
+`),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownValue(addr, tfjsonpath.New("severity_filters"), knownvalue.SetExact([]knownvalue.Check{})),
 				},
 			},
 		},

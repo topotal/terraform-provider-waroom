@@ -146,16 +146,19 @@ func (r *OnCallTriggerResource) Schema(_ context.Context, _ resource.SchemaReque
 				},
 			},
 			"severity_filters": schema.SetAttribute{
-				MarkdownDescription: "The incident severities the trigger applies to: `critical`, `high`, `low`, `info` or `unknown`.",
-				ElementType:         types.StringType,
-				Required:            true,
+				MarkdownDescription: "The incident severities the trigger applies to: `critical`, `high`, `low`, `info` or `unknown`. " +
+					"An empty set (`[]`) matches every severity.",
+				ElementType: types.StringType,
+				Required:    true,
 				Validators: []validator.Set{
 					setvalidator.ValueStringsAre(stringvalidator.OneOf(onCallTriggerSeverities...)),
 				},
 			},
 			"source_filters": schema.SetAttribute{
 				MarkdownDescription: "The incident sources the trigger applies to: `integration`, `slack` or `web`. " +
-					"Defaults to `[\"" + onCallTriggerDefaultSourceFilter + "\"]`.",
+					"Defaults to `[\"" + onCallTriggerDefaultSourceFilter + "\"]`. At least one is required: Waroom accepts an empty set, " +
+					"but a trigger with no source never fires. " +
+					"Use `enabled = false` to stop a trigger instead.",
 				ElementType: types.StringType,
 				Optional:    true,
 				Computed:    true,
@@ -163,6 +166,9 @@ func (r *OnCallTriggerResource) Schema(_ context.Context, _ resource.SchemaReque
 					types.StringValue(onCallTriggerDefaultSourceFilter),
 				})),
 				Validators: []validator.Set{
+					// Waroom accepts [] but never fires such a trigger, unlike an empty severity_filters, which matches
+					// every severity (https://github.com/topotal/waroom-client-go/issues/212). Relax this if the API changes.
+					setvalidator.SizeAtLeast(1),
 					setvalidator.ValueStringsAre(stringvalidator.OneOf(onCallTriggerSources...)),
 				},
 			},
@@ -231,6 +237,11 @@ func (r *OnCallTriggerResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
+	// Save the ID first so that the trigger is tracked (and tainted) even if reading the response fails.
+	// Otherwise a live trigger, which may page people, would be left outside Terraform.
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), created.UUID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("uuid"), created.UUID)...)
+
 	// The create response has the same shape as the get response.
 	trigger, err := toOnCallTrigger(created)
 	if err != nil {
@@ -238,7 +249,7 @@ func (r *OnCallTriggerResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
-	state, diags := newOnCallTriggerResourceModel(trigger)
+	state, diags := newOnCallTriggerResourceModel(ctx, trigger)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -273,7 +284,7 @@ func (r *OnCallTriggerResource) Read(ctx context.Context, req resource.ReadReque
 		return
 	}
 
-	state, diags := newOnCallTriggerResourceModel(trigger)
+	state, diags := newOnCallTriggerResourceModel(ctx, trigger)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -332,7 +343,7 @@ func (r *OnCallTriggerResource) Update(ctx context.Context, req resource.UpdateR
 		return
 	}
 
-	newState, diags := newOnCallTriggerResourceModel(trigger)
+	newState, diags := newOnCallTriggerResourceModel(ctx, trigger)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -425,7 +436,7 @@ func toOnCallTrigger(v interface{ MarshalJSON() ([]byte, error) }) (*waroom.OnCa
 }
 
 // newOnCallTriggerResourceModel converts an API on-call trigger into the resource model.
-func newOnCallTriggerResourceModel(t *waroom.OnCallTrigger) (OnCallTriggerResourceModel, diag.Diagnostics) {
+func newOnCallTriggerResourceModel(ctx context.Context, t *waroom.OnCallTrigger) (OnCallTriggerResourceModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	trigger := onCallTriggerFromGet(t)
 
@@ -445,21 +456,12 @@ func newOnCallTriggerResourceModel(t *waroom.OnCallTrigger) (OnCallTriggerResour
 	}
 
 	var d diag.Diagnostics
-	data.EscalationPolicyUUIDs, d = stringSetValue(policyUUIDs)
+	data.EscalationPolicyUUIDs, d = types.SetValueFrom(ctx, types.StringType, policyUUIDs)
 	diags.Append(d...)
-	data.SeverityFilters, d = stringSetValue(trigger.SeverityFilters)
+	data.SeverityFilters, d = types.SetValueFrom(ctx, types.StringType, trigger.SeverityFilters)
 	diags.Append(d...)
-	data.SourceFilters, d = stringSetValue(trigger.SourceFilters)
+	data.SourceFilters, d = types.SetValueFrom(ctx, types.StringType, trigger.SourceFilters)
 	diags.Append(d...)
 
 	return data, diags
-}
-
-// stringSetValue returns a set of strings, which is empty (not null) when values is empty.
-func stringSetValue(values []string) (types.Set, diag.Diagnostics) {
-	elems := make([]attr.Value, 0, len(values))
-	for _, v := range values {
-		elems = append(elems, types.StringValue(v))
-	}
-	return types.SetValue(types.StringType, elems)
 }
