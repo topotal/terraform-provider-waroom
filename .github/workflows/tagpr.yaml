@@ -2,7 +2,7 @@ name: tagpr
 
 # tagpr keeps a release pull request up to date. Merging it makes tagpr tag the merge commit
 # and create a draft release, and the release job then builds, signs and publishes it.
-# Tags pushed with GITHUB_TOKEN do not trigger other workflows, so the release runs here.
+# The release runs in this workflow, taking the tag from tagpr's output.
 on:
   push:
     branches: [ main ]
@@ -20,19 +20,28 @@ jobs:
   tagpr:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
-      issues: read
+      contents: read
     outputs:
       tag: ${{ steps.tagpr.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      # The release-tag ruleset lets only this App create v* tags. The App token also lets
+      # the release PR trigger the test workflow, which GITHUB_TOKEN events cannot.
+      - id: app-token
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.WAROOM_ECOSYSTEM_APP_CLIENT_ID }}
+          private-key: ${{ secrets.WAROOM_ECOSYSTEM_APP_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: read
       - id: tagpr
         uses: Songmu/tagpr@047aec4b6c0ce166f52958b5a97f5a3d927fd65b # v1.22.0
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
   release:
     needs: tagpr
