@@ -21,3 +21,13 @@ func parseServiceScopedImportID(importID string) (string, string, error) {
 	}
 	return parts[0], id.String(), nil
 }
+
+// parseUUIDImportID checks the import ID of a top-level resource, which is its UUID, and returns the
+// UUID in canonical form (lowercase, hyphenated), as the API returns it, so it matches the API's value in Read.
+func parseUUIDImportID(importID string) (string, error) {
+	id, err := uuid.Parse(importID)
+	if err != nil {
+		return "", fmt.Errorf("expected import ID format: uuid. Got: %s (%s)", importID, err)
+	}
+	return id.String(), nil
+}

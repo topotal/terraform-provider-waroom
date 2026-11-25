@@ -245,6 +245,22 @@ func TestAccOnCallTeamResource(t *testing.T) {
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
+			// Import with a non-canonical UUID, which is normalized
+			{
+				ResourceName:      res,
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateIdFunc: func(s *terraform.State) (string, error) {
+					return strings.ToUpper(s.RootModule().Resources[res].Primary.Attributes["uuid"]), nil
+				},
+			},
+			// Import with an ID that is not a UUID
+			{
+				ResourceName:  res,
+				ImportState:   true,
+				ImportStateId: name,
+				ExpectError:   regexp.MustCompile(`Invalid Import ID`),
+			},
 			// Update the team, change the first rotation (with a started_at that Waroom adjusts) and add a second one
 			{
 				Config: testAccOnCallTeamResourceConfig(updatedName, "FF8C00", fmt.Sprintf(`
