@@ -126,6 +126,12 @@ func (r *PostmortemTemplateResource) Create(ctx context.Context, req resource.Cr
 		return
 	}
 
+	resp.Diagnostics.Append(waroomvalidator.CheckNotBlank(path.Root("title"), plan.Title)...)
+	resp.Diagnostics.Append(waroomvalidator.CheckNotBlank(path.Root("blob"), plan.Blob)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	creq := waroom.CreatePostmortemTemplateReq{Blob: plan.Blob.ValueString()}
 	if !plan.Title.IsNull() {
 		creq.Title.SetTo(plan.Title.ValueString())
@@ -187,6 +193,12 @@ func (r *PostmortemTemplateResource) Update(ctx context.Context, req resource.Up
 	var state PostmortemTemplateResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(waroomvalidator.CheckNotBlank(path.Root("title"), plan.Title)...)
+	resp.Diagnostics.Append(waroomvalidator.CheckNotBlank(path.Root("blob"), plan.Blob)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

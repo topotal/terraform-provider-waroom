@@ -113,6 +113,11 @@ func (r *ServiceIncidentDocumentTemplateResource) Create(ctx context.Context, re
 		return
 	}
 
+	resp.Diagnostics.Append(waroomvalidator.CheckNotBlank(path.Root("blob"), plan.Blob)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	state, err := r.put(ctx, plan)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("UpdateIncidentDocumentTemplate, got error: %s", err))
@@ -171,6 +176,11 @@ func (r *ServiceIncidentDocumentTemplateResource) Update(ctx context.Context, re
 		return
 	}
 
+	resp.Diagnostics.Append(waroomvalidator.CheckNotBlank(path.Root("blob"), plan.Blob)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	state, err := r.put(ctx, plan)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("UpdateIncidentDocumentTemplate, got error: %s", err))
@@ -221,12 +231,6 @@ func (r *ServiceIncidentDocumentTemplateResource) ImportState(ctx context.Contex
 
 // put upserts the template from the plan and returns the resulting state.
 func (r *ServiceIncidentDocumentTemplateResource) put(ctx context.Context, plan ServiceIncidentDocumentTemplateResourceModel) (ServiceIncidentDocumentTemplateResourceModel, error) {
-	// The schema validator is skipped when blob is unknown at plan time, so check it again here:
-	// the API treats a blank template as absent, and Read would then drop the resource.
-	if waroomvalidator.IsBlank(plan.Blob.ValueString()) {
-		return ServiceIncidentDocumentTemplateResourceModel{}, errors.New("blob must contain a non-whitespace character; destroy the resource to clear the template")
-	}
-
 	updated, err := r.client.Services.UpdateIncidentDocumentTemplate(ctx,
 		waroom.UpdateIncidentDocumentTemplateReq{Blob: waroom.NewOptString(plan.Blob.ValueString())},
 		waroom.UpdateIncidentDocumentTemplateParams{Name: plan.ServiceName.ValueString()},

@@ -57,7 +57,11 @@ func TestAccPostmortemTemplateResource(t *testing.T) {
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
-			// A blank title (including Unicode whitespace) is rejected at plan time
+			// A blank title is rejected at plan time, whether empty or Unicode whitespace only
+			{
+				Config:      testAccPostmortemTemplateResourceConfig(`title = ""`, blob),
+				ExpectError: regexp.MustCompile(`must contain a non-whitespace character`),
+			},
 			{
 				Config:      testAccPostmortemTemplateResourceConfig(`title = "\u3000"`, blob),
 				ExpectError: regexp.MustCompile(`must contain a non-whitespace character`),

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	v "github.com/topotal/terraform-provider-waroom/internal/validator"
@@ -66,6 +67,29 @@ func TestIsBlank(t *testing.T) {
 	for s, want := range cases {
 		if got := v.IsBlank(s); got != want {
 			t.Errorf("IsBlank(%q) = %v, want %v", s, got, want)
+		}
+	}
+}
+
+func TestCheckNotBlank(t *testing.T) {
+	p := path.Root("blob")
+	cases := []struct {
+		value   types.String
+		wantErr bool
+	}{
+		{types.StringValue("x"), false},
+		{types.StringNull(), false},
+		{types.StringUnknown(), false},
+		{types.StringValue(""), true},
+		{types.StringValue("　 "), true},
+	}
+	for _, c := range cases {
+		diags := v.CheckNotBlank(p, c.value)
+		if diags.HasError() != c.wantErr {
+			t.Errorf("CheckNotBlank(%s) error = %v, want %v", c.value, diags.HasError(), c.wantErr)
+		}
+		if c.wantErr && !diags[0].(interface{ Path() path.Path }).Path().Equal(p) {
+			t.Errorf("CheckNotBlank(%s) error is not attached to %s", c.value, p)
 		}
 	}
 }
