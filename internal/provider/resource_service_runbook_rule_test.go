@@ -35,6 +35,13 @@ func TestParseServiceRunbookRuleImportID(t *testing.T) {
 		t.Errorf("got (%q, %q), want (%q, %q)", serviceName, got, "my-service", id)
 	}
 
+	// Other UUID spellings are normalized to the canonical form the API returns.
+	for _, in := range []string{strings.ToUpper(id), "{" + id + "}", "urn:uuid:" + id} {
+		if _, got, err := parseServiceRunbookRuleImportID("my-service," + in); err != nil || got != id {
+			t.Errorf("parseServiceRunbookRuleImportID(%q) = (%q, %v), want (%q, nil)", in, got, err, id)
+		}
+	}
+
 	for _, in := range []string{"", id, "my-service", "my-service,", "," + id, "my-service,not-a-uuid", "a,b," + id} {
 		if _, _, err := parseServiceRunbookRuleImportID(in); err == nil {
 			t.Errorf("expected an error for %q", in)
@@ -44,7 +51,6 @@ func TestParseServiceRunbookRuleImportID(t *testing.T) {
 
 func TestServiceRunbookRuleNamespaceValidators(t *testing.T) {
 	valid := []string{
-		"/",
 		"/default",
 		"/api-server/recovery",
 		"/A_z-0/9",
@@ -52,6 +58,8 @@ func TestServiceRunbookRuleNamespaceValidators(t *testing.T) {
 	}
 	invalid := []string{
 		"",
+		"/",
+		"//a",
 		"default",
 		"api-server/recovery",
 		"/with space",
@@ -182,31 +190,11 @@ func TestAccServiceRunbookRuleResource(t *testing.T) {
 	})
 }
 
-// testAccListServiceRunbookRules returns all runbook rules of a service.
-func testAccListServiceRunbookRules(t *testing.T, client *waroom.Client, serviceName string) ([]waroom.RunbookRuleListItem, error) {
-	t.Helper()
-	var all []waroom.RunbookRuleListItem
-	for page := 1; ; page++ {
-		rules, err := client.RunbookRules.List(context.Background(), waroom.ListServiceRunbookRulesParams{
-			Name:    serviceName,
-			Page:    waroom.NewOptInt(page),
-			PerPage: waroom.NewOptInt(serviceRunbookRuleListPerPage),
-		})
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, rules...)
-		if len(rules) < serviceRunbookRuleListPerPage {
-			return all, nil
-		}
-	}
-}
-
 // testAccDeleteServiceRunbookRules deletes the rules of a service that link to the given runbook.
 func testAccDeleteServiceRunbookRules(t *testing.T, serviceName, namespace string) {
 	t.Helper()
 	client := testAccWaroomClient(t)
-	rules, err := testAccListServiceRunbookRules(t, client, serviceName)
+	rules, err := listAllServiceRunbookRules(context.Background(), client, serviceName)
 	if err != nil {
 		t.Fatalf("list runbook rules of %s: %s", serviceName, err)
 	}
@@ -234,7 +222,7 @@ func testAccCheckServiceRunbookRuleDestroy(t *testing.T) resource.TestCheckFunc 
 			if err != nil {
 				return fmt.Errorf("parse uuid: %w", err)
 			}
-			rules, err := testAccListServiceRunbookRules(t, client, serviceName)
+			rules, err := listAllServiceRunbookRules(context.Background(), client, serviceName)
 			var apiErr *waroom.APIError
 			if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
 				continue

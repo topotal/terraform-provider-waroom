@@ -197,37 +197,52 @@ func (r *ServiceRunbookRuleResource) Read(ctx context.Context, req resource.Read
 		return
 	}
 
-	id := data.UUID.ValueString()
-	for page := 1; ; page++ {
-		rules, err := r.client.RunbookRules.List(ctx, waroom.ListServiceRunbookRulesParams{
-			Name:    data.ServiceName.ValueString(),
-			Page:    waroom.NewOptInt(page),
-			PerPage: waroom.NewOptInt(serviceRunbookRuleListPerPage),
-		})
-		if err != nil {
-			// The service itself is gone.
-			var apiErr *waroom.APIError
-			if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
-				resp.State.RemoveResource(ctx)
-				return
-			}
-			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("ListServiceRunbookRules, got error: %s", err))
+	id, err := uuid.Parse(data.UUID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid UUID", fmt.Sprintf("Unable to parse UUID from state: %s", err))
+		return
+	}
+
+	rules, err := listAllServiceRunbookRules(ctx, r.client, data.ServiceName.ValueString())
+	if err != nil {
+		// The service itself is gone.
+		var apiErr *waroom.APIError
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+			resp.State.RemoveResource(ctx)
 			return
 		}
-		for _, rule := range rules {
-			if rule.UUID.String() == id {
-				data.setFromAPI(rule.UUID, rule.Pattern, string(rule.Target), rule.Priority, rule.RunbookNamespace, rule.CreatedAt, rule.UpdatedAt)
-				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-				return
-			}
-		}
-		if len(rules) < serviceRunbookRuleListPerPage {
-			break
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("ListServiceRunbookRules, got error: %s", err))
+		return
+	}
+	for _, rule := range rules {
+		if rule.UUID == id {
+			data.setFromAPI(rule.UUID, rule.Pattern, string(rule.Target), rule.Priority, rule.RunbookNamespace, rule.CreatedAt, rule.UpdatedAt)
+			resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+			return
 		}
 	}
 
 	// Not found in the list: treat it as deleted.
 	resp.State.RemoveResource(ctx)
+}
+
+// listAllServiceRunbookRules returns all runbook rules of a service, following the pages of the List API.
+func listAllServiceRunbookRules(ctx context.Context, client *waroom.Client, serviceName string) ([]waroom.RunbookRuleListItem, error) {
+	var all []waroom.RunbookRuleListItem
+	for page := 1; ; page++ {
+		rules, err := client.RunbookRules.List(ctx, waroom.ListServiceRunbookRulesParams{
+			Name:    serviceName,
+			Page:    waroom.NewOptInt(page),
+			PerPage: waroom.NewOptInt(serviceRunbookRuleListPerPage),
+		})
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, rules...)
+		if len(rules) < serviceRunbookRuleListPerPage {
+			return all, nil
+		}
+	}
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
@@ -332,28 +347,29 @@ func (r *ServiceRunbookRuleResource) ImportState(ctx context.Context, req resour
 }
 
 // parseServiceRunbookRuleImportID splits an import ID of the form "service_name,uuid".
-func parseServiceRunbookRuleImportID(importID string) (serviceName, id string, err error) {
+// The UUID is returned in canonical form (lowercase, hyphenated), as the API returns it.
+func parseServiceRunbookRuleImportID(importID string) (string, string, error) {
 	parts := strings.Split(importID, ",")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return "", "", fmt.Errorf("expected import ID format: service_name,uuid. Got: %s", importID)
 	}
-	if _, err := uuid.Parse(parts[1]); err != nil {
+	id, err := uuid.Parse(parts[1])
+	if err != nil {
 		return "", "", fmt.Errorf("the UUID part of the import ID is not valid: %s", err)
 	}
-	return parts[0], parts[1], nil
+	return parts[0], id.String(), nil
 }
 
-// serviceRunbookRuleNamespaceValidators mirrors the runbook namespace rule (`\A/[\w\-/]*\z`, at most 255 characters).
-// Unlike the waroom_runbook data source, the leading slash is required: the runbook rule API looks the runbook up
-// by the namespace as given and answers "Runbook not found" without it.
+// serviceRunbookRuleNamespaceValidators applies the runbook namespace rule shared with the waroom_runbook
+// data source, and additionally requires the leading slash: the runbook rule API looks the runbook up by
+// the namespace as given and answers "Runbook not found" without it.
 func serviceRunbookRuleNamespaceValidators() []validator.String {
-	return []validator.String{
+	return append(runbookNamespaceValidators(),
 		stringvalidator.RegexMatches(
-			regexp.MustCompile(`^/[A-Za-z0-9_/-]*$`),
-			"must start with `/` and contain only ASCII letters, digits, `_`, `-` and `/` (e.g. `/default`)",
+			regexp.MustCompile(`^/`),
+			"must start with `/` (e.g. `/default`)",
 		),
-		stringvalidator.LengthAtMost(255),
-	}
+	)
 }
 
 func (m *ServiceRunbookRuleResourceModel) setFromAPI(id uuid.UUID, pattern, target string, priority int, runbookNamespace string, createdAt, updatedAt time.Time) {
