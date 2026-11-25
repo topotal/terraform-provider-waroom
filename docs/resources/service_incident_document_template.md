@@ -4,14 +4,14 @@ page_title: "waroom_service_incident_document_template Resource - waroom"
 subcategory: ""
 description: |-
   Manages the incident document template of a Waroom service. The template provides the initial content of the incident documents created in the service.
-  ~> Note: A service has exactly one incident document template, so manage at most one of this resource per service. Creating this resource overwrites any template already set on the service, and destroying it clears the template.
+  ~> Note: A service has exactly one incident document template, so manage at most one of this resource per service. Creating this resource overwrites any template already set on the service, and destroying it clears the template. To stop managing the template without clearing it, remove the resource from the state with a removed block and lifecycle { destroy = false } (Terraform 1.7+) or with terraform state rm.
 ---
 
 # waroom_service_incident_document_template (Resource)
 
 Manages the incident document template of a Waroom service. The template provides the initial content of the incident documents created in the service.
 
-~> **Note:** A service has exactly one incident document template, so manage at most one of this resource per service. Creating this resource overwrites any template already set on the service, and destroying it clears the template.
+~> **Note:** A service has exactly one incident document template, so manage at most one of this resource per service. Creating this resource overwrites any template already set on the service, and destroying it clears the template. To stop managing the template without clearing it, remove the resource from the state with a `removed` block and `lifecycle { destroy = false }` (Terraform 1.7+) or with `terraform state rm`.
 
 ## Example Usage
 
