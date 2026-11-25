@@ -43,11 +43,11 @@ resource "waroom_postmortem_template" "from_file" {
 
 ### Required
 
-- `blob` (String) The content of the postmortem template, in Markdown.
+- `blob` (String) The content of the postmortem template, in Markdown. Must contain a non-whitespace character.
 
 ### Optional
 
-- `title` (String) The title of the postmortem template. Omit it for a template without a title; an empty string is not allowed.
+- `title` (String) The title of the postmortem template. Omit it for a template without a title. Must contain a non-whitespace character.
 
 ### Read-Only
 
