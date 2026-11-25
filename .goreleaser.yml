@@ -1,0 +1,61 @@
+# Based on https://github.com/hashicorp/terraform-provider-scaffolding-framework/blob/main/.goreleaser.yml
+# The asset names, the manifest and the signed SHA256SUMS follow the Terraform Registry requirements:
+# https://developer.hashicorp.com/terraform/registry/providers/publishing
+version: 2
+builds:
+  - env:
+      # Providers must not need system libraries (e.g. on HCP Terraform runners).
+      - CGO_ENABLED=0
+    mod_timestamp: '{{ .CommitTimestamp }}'
+    flags:
+      - -trimpath
+    ldflags:
+      - '-s -w -X main.version={{.Version}} -X main.commit={{.Commit}}'
+    goos:
+      - freebsd
+      - windows
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - '386'
+      - arm
+      - arm64
+    ignore:
+      - goos: darwin
+        goarch: '386'
+      - goos: windows
+        goarch: arm
+    binary: '{{ .ProjectName }}_v{{ .Version }}'
+archives:
+  - formats:
+      - zip
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+checksum:
+  extra_files:
+    - glob: 'terraform-registry-manifest.json'
+      name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
+  name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
+  algorithm: sha256
+signs:
+  # The registry needs a binary (not ASCII-armored) detached signature of SHA256SUMS.
+  - artifacts: checksum
+    args:
+      - "--batch"
+      - "--local-user"
+      - "{{ .Env.GPG_FINGERPRINT }}"
+      - "--output"
+      - "${signature}"
+      - "--detach-sign"
+      - "${artifact}"
+release:
+  extra_files:
+    - glob: 'terraform-registry-manifest.json'
+      name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
+  # tagpr creates a draft release with the release notes (tagpr.release = draft).
+  # Attach the assets to that draft, keep its notes, then publish it.
+  use_existing_draft: true
+  mode: keep-existing
+  draft: false
+changelog:
+  disable: true

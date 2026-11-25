@@ -1,0 +1,92 @@
+name: tagpr
+
+# tagpr keeps a release pull request up to date. Merging it makes tagpr tag the merge commit
+# and create a draft release, and the release job then builds, signs and publishes it.
+# Tags pushed with GITHUB_TOKEN do not trigger other workflows, so the release runs here.
+on:
+  push:
+    branches: [ main ]
+
+permissions: {}
+
+concurrency:
+  group: tagpr
+  cancel-in-progress: false
+
+env:
+  GOPRIVATE: github.com/topotal/waroom-client-go
+
+jobs:
+  tagpr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: read
+    outputs:
+      tag: ${{ steps.tagpr.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - id: tagpr
+        uses: Songmu/tagpr@047aec4b6c0ce166f52958b5a97f5a3d927fd65b # v1.22.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  release:
+    needs: tagpr
+    if: needs.tagpr.outputs.tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.tagpr.outputs.tag }}
+          # GoReleaser needs the previous tags.
+          fetch-depth: 0
+          persist-credentials: false
+      - id: app-token
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.WAROOM_ECOSYSTEM_APP_CLIENT_ID }}
+          private-key: ${{ secrets.WAROOM_ECOSYSTEM_APP_PRIVATE_KEY }}
+          owner: topotal
+          repositories: waroom-client-go
+          permission-contents: read
+      - name: Allow go to fetch waroom-client-go
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token }}
+        run: git config --global url."https://x-access-token:${TOKEN}@github.com/topotal/waroom-client-go".insteadOf "https://github.com/topotal/waroom-client-go"
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - id: import-gpg
+        uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GPG_FINGERPRINT: ${{ steps.import-gpg.outputs.fingerprint }}
+      # SHA256SUMS lists every zip and the manifest, so it covers all release assets.
+      # Its name has the version without the v prefix.
+      - id: checksums
+        env:
+          TAG: ${{ needs.tagpr.outputs.tag }}
+        run: echo "path=dist/terraform-provider-waroom_${TAG#v}_SHA256SUMS" >> "$GITHUB_OUTPUT"
+      # Artifact attestations need a public repository on the Team plan.
+      - if: github.event.repository.visibility == 'public'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: ${{ steps.checksums.outputs.path }}
