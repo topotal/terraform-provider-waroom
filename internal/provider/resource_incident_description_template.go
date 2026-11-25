@@ -69,7 +69,9 @@ func (r *IncidentDescriptionTemplateResource) Schema(_ context.Context, _ resour
 		MarkdownDescription: "Manages the incident description template of the Waroom organization. " +
 			"The template provides the initial description of new incidents.\n\n" +
 			"~> **Note:** An organization has exactly one incident description template, so declare this resource at most once. " +
-			"Creating this resource overwrites any template already set, and destroying it clears the template.",
+			"Creating this resource overwrites any template already set, and destroying it clears the template. " +
+			"To stop managing the template without clearing it, remove the resource from the state with a `removed` block " +
+			"and `lifecycle { destroy = false }` (Terraform 1.7+) or with `terraform state rm`.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

@@ -70,7 +70,9 @@ func (r *ServiceIncidentDocumentTemplateResource) Schema(_ context.Context, _ re
 			"The template provides the initial content of the incident documents created in the service.\n\n" +
 			"~> **Note:** A service has exactly one incident document template, so manage at most one of this resource per service. " +
 			"Creating this resource overwrites any template already set on the service, " +
-			"and destroying it clears the template.",
+			"and destroying it clears the template. " +
+			"To stop managing the template without clearing it, remove the resource from the state with a `removed` block " +
+			"and `lifecycle { destroy = false }` (Terraform 1.7+) or with `terraform state rm`.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{

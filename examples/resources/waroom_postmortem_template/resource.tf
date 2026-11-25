@@ -18,6 +18,6 @@ resource "waroom_postmortem_template" "inline" {
 
 # Or read it from a Markdown file placed next to this configuration.
 resource "waroom_postmortem_template" "from_file" {
-  title = "Security incident postmortem"
+  title = "General postmortem"
   blob  = file("${path.module}/postmortem.md")
 }
