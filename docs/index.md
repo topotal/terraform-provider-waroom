@@ -31,7 +31,7 @@ provider "waroom" {
   api_key = var.waroom_api_key
 
   # endpoint can also be set via the WAROOM_API_ENDPOINT environment variable
-  endpoint = "https://api.waroom.com/api/v0"
+  endpoint = "https://api.waroom.com" # host only; do not add /api/v0
 }
 ```
 
@@ -41,4 +41,4 @@ provider "waroom" {
 ### Optional
 
 - `api_key` (String, Sensitive) Waroom API key for authentication. This can also be set via the `WAROOM_API_KEY` environment variable.
-- `endpoint` (String) Waroom API endpoint. This can also be set via the `WAROOM_API_ENDPOINT` environment variable. Either this attribute or the environment variable must be set.
+- `endpoint` (String) Waroom API endpoint, host only without the `/api/v0` path (e.g. `https://api.waroom.com`). This can also be set via the `WAROOM_API_ENDPOINT` environment variable. Either this attribute or the environment variable must be set.

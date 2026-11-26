@@ -46,7 +46,7 @@ func (p *WaroomProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 		MarkdownDescription: "The Waroom provider allows you to manage configurations and resources on [waroom.com](https://waroom.com/).",
 		Attributes: map[string]schema.Attribute{
 			"endpoint": schema.StringAttribute{
-				MarkdownDescription: "Waroom API endpoint. This can also be set via the `WAROOM_API_ENDPOINT` environment variable. " +
+				MarkdownDescription: "Waroom API endpoint, host only without the `/api/v0` path (e.g. `https://api.waroom.com`). This can also be set via the `WAROOM_API_ENDPOINT` environment variable. " +
 					"Either this attribute or the environment variable must be set.",
 				Optional: true,
 			},

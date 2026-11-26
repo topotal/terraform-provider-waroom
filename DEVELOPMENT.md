@@ -13,7 +13,7 @@ For usage, see the [README](README.md).
 
 The provider uses [`waroom-client-go`](https://github.com/topotal/waroom-client-go) to call the Waroom API.
 
-It is pinned to a tagged version (currently `v0.0.0-alpha`) in `go.mod`. To update the pinned version:
+It is pinned to a tagged version in `go.mod` (see `go.mod` for the current version). To update the pinned version:
 
 ```shell
 go get github.com/topotal/waroom-client-go@<version>

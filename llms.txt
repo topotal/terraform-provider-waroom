@@ -26,7 +26,7 @@ Our implementation follows this documentation for implementation details, best p
 
 ## Examples
 
-- [Examples](https://github.com/topotal/terraform-provider-waroom/main/examples): List of example files.
+- [Examples](https://github.com/topotal/terraform-provider-waroom/tree/main/examples): List of example files.
 
 ## Project Structure
 
@@ -38,21 +38,15 @@ Our implementation follows this documentation for implementation details, best p
   - `resource_*.go`: Resource implementations
   - `provider_test.go`: Shared test setup (provider factories for acceptance tests)
 
-### Currently Implemented Resources
+### Implemented Resources and Data Sources
 
-- **Service Label Resource** (`waroom_service_label`)
-  - Manages Waroom service labels
-  - Supports: Create, Read, Update, Delete, Import
-  - Files: `resource_service_label.go`
-
-- **Service Label Data Source** (`waroom_service_label`)
-  - Reads Waroom service label data
-  - Files: `data_source_service_label.go`
+- The registered resources / data sources are listed in `Resources()` / `DataSources()` in `provider.go`; their docs are in `docs/resources/` and `docs/data-sources/`.
+- `waroom_service_label` (`resource_service_label.go`, `data_source_service_label.go`) is the reference implementation for new ones (CRUD + import under a parent service).
 
 ### Key Dependencies
 
 - **Terraform Plugin Framework**: v1.19.0
-- **Waroom Client SDK**: `github.com/topotal/waroom-client-go` (alpha)
+- **Waroom Client SDK**: `github.com/topotal/waroom-client-go` (pre-1.0; the API may change)
   - The version pinned in `go.mod` is what CI builds against. A local `go.work` (gitignored) may point to `../waroom-client-go`, which can contain unreleased APIs. To check what the pinned version provides, use `GOWORK=off` (e.g. `GOWORK=off go mod download -json github.com/topotal/waroom-client-go@<version>` for its source directory).
 - **Go Version**: 1.27.4
 

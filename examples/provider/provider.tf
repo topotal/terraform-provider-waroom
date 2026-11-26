@@ -17,5 +17,5 @@ provider "waroom" {
   api_key = var.waroom_api_key
 
   # endpoint can also be set via the WAROOM_API_ENDPOINT environment variable
-  endpoint = "https://api.waroom.com/api/v0"
+  endpoint = "https://api.waroom.com" # host only; do not add /api/v0
 }
