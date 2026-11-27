@@ -1,3 +1,16 @@
+## [v0.0.2](https://github.com/topotal/terraform-provider-waroom/compare/v0.0.1...v0.0.2) - 2026-11-27
+
+- ci: pin the GoReleaser version by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/105
+- docs: fix the endpoint example and stale README / llms.txt / DEVELOPMENT.md by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/107
+- chore: add CODEOWNERS and gate release PRs on a VERSION file by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/109
+- docs: add a security policy by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/108
+- fix: send the real versions in the User-Agent by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/110
+- ci: drop download-modules now that waroom-client-go is public by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/111
+- chore: drop the default code owner for now by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/112
+- chore: require a releaser for everything under .github/ by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/114
+- ci: run govulncheck and update grpc to v1.83.2 by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/113
+- ci: require GPG signing for releases by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/115
+
 ## [v0.0.1](https://github.com/topotal/terraform-provider-waroom/commits/v0.0.1) - 2026-11-25
 
 - feat: implement `waroom_service_label` import by @shiimaxx in https://github.com/topotal/terraform-provider-waroom/pull/9
