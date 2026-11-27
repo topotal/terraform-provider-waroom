@@ -10,6 +10,7 @@
 - chore: require a releaser for everything under .github/ by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/114
 - ci: run govulncheck and update grpc to v1.83.2 by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/113
 - ci: require GPG signing for releases by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/115
+- chore(deps):bump client by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/116
 
 ## [v0.0.1](https://github.com/topotal/terraform-provider-waroom/commits/v0.0.1) - 2026-11-25
 
