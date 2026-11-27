@@ -16,6 +16,9 @@ concurrency:
 jobs:
   tagpr:
     runs-on: ubuntu-latest
+    # The App key lives in this environment's secrets, which only main can use.
+    # This job runs no repository code; the release job builds it without the App key.
+    environment: release
     permissions:
       contents: read
     outputs:
@@ -40,18 +43,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
-  # The release job builds repository code, so it gets the private waroom-client-go module
-  # from this job's artifact instead of holding the App key.
-  download:
+  release:
     needs: tagpr
     if: needs.tagpr.outputs.tag != ''
-    permissions:
-      contents: read
-    uses: ./.github/workflows/download-modules.yaml
-    secrets: inherit
-
-  release:
-    needs: [ tagpr, download ]
     runs-on: ubuntu-latest
     # The GPG signing key lives in this environment's secrets, which only main can use.
     environment: release
@@ -73,12 +67,6 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
-          name: goproxy
-          path: ${{ runner.temp }}/goproxy
-      - name: Serve modules only from the downloaded cache
-        run: echo "GOPROXY=file://${RUNNER_TEMP}/goproxy" >> "$GITHUB_ENV"
       # Until the GPG key is registered, release without signing. The Terraform Registry
       # does not ingest unsigned releases, so register it before publishing there.
       # TODO: When the repository becomes public, make signing required: register the key,
