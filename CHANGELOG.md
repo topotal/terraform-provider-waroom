@@ -1,3 +1,8 @@
+## [v0.1.0](https://github.com/topotal/terraform-provider-waroom/compare/v0.0.2...v0.1.0) - 2026-11-27
+
+- docs: prepare README and issue templates for the public repository by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/118
+- ci: allow running tagpr manually by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/120
+
 ## [v0.0.2](https://github.com/topotal/terraform-provider-waroom/compare/v0.0.1...v0.0.2) - 2026-11-27
 
 - ci: pin the GoReleaser version by @Sho2010 in https://github.com/topotal/terraform-provider-waroom/pull/105
