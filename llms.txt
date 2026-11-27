@@ -45,10 +45,12 @@ Our implementation follows this documentation for implementation details, best p
 
 ### Key Dependencies
 
-- **Terraform Plugin Framework**: v1.19.0
+Versions are pinned in `go.mod`; check it instead of hard-coding them here.
+
+- **Terraform Plugin Framework**: `github.com/hashicorp/terraform-plugin-framework`
 - **Waroom Client SDK**: `github.com/topotal/waroom-client-go` (pre-1.0; the API may change)
   - The version pinned in `go.mod` is what CI builds against. A local `go.work` (gitignored) may point to `../waroom-client-go`, which can contain unreleased APIs. To check what the pinned version provides, use `GOWORK=off` (e.g. `GOWORK=off go mod download -json github.com/topotal/waroom-client-go@<version>` for its source directory).
-- **Go Version**: 1.27.4
+- **Go Version**: the `go` directive in `go.mod`
 
 ### Development Tools
 

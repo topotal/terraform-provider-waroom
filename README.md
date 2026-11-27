@@ -1,13 +1,14 @@
 # Terraform Provider for Waroom
 
 - Website: [waroom.com](https://waroom.com/)
-- Documentation: [`docs/`](docs/)
+- Documentation: [Terraform Registry](https://registry.terraform.io/providers/topotal/waroom/latest/docs)
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
 
 The Waroom Provider enables [Terraform](https://www.terraform.io) to manage [Waroom](https://waroom.com/) resources.
 
 > [!NOTE]
 > This provider is in early development (v0.x). Resources and their schemas may change without notice.
+> Minor releases (v0.1 → v0.2) may contain breaking changes, so pin the minor version as in the example below and read the [CHANGELOG](CHANGELOG.md) before upgrading.
 
 ## Usage Example
 
@@ -15,7 +16,8 @@ The Waroom Provider enables [Terraform](https://www.terraform.io) to manage [War
 terraform {
   required_providers {
     waroom = {
-      source = "topotal/waroom"
+      source  = "topotal/waroom"
+      version = "~> 0.1.0"
     }
   }
 }
@@ -43,12 +45,12 @@ See [`examples/`](examples/) for more examples.
 
 ## Authentication
 
-The provider needs a Waroom API key and API endpoint. Each can be configured either in the provider block or via an environment variable.
+The provider needs a Waroom API key and API endpoint. Set each one either in the provider block or via its environment variable; one of the two is required.
 
-| Provider argument | Environment variable  | Required | Description          |
-| ----------------- | --------------------- | -------- | -------------------- |
-| `api_key`         | `WAROOM_API_KEY`      | Yes      | Waroom API key.      |
-| `endpoint`        | `WAROOM_API_ENDPOINT` | Yes      | Waroom API endpoint. |
+| Provider argument | Environment variable  | Description                                                                 |
+| ----------------- | --------------------- | --------------------------------------------------------------------------- |
+| `api_key`         | `WAROOM_API_KEY`      | Waroom API key.                                                             |
+| `endpoint`        | `WAROOM_API_ENDPOINT` | Waroom API endpoint, host only without `/api/v0` (`https://api.waroom.com`). |
 
 ```shell
 export WAROOM_API_KEY="<your-api-key>"
@@ -78,6 +80,15 @@ terraform plan
 ## Requirements
 
 - [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.16
+
+## Reporting Issues
+
+Report bugs and request features in [GitHub Issues](https://github.com/topotal/terraform-provider-waroom/issues/new/choose).
+When the cause turns out to be in the Waroom API or in [waroom-client-go](https://github.com/topotal/waroom-client-go), we will forward the issue there.
+
+- Include the output of `terraform version`; it shows the provider version too.
+- Do not paste API keys or data from your Waroom organization. Use placeholders instead.
+- Report security vulnerabilities privately, as described in [SECURITY.md](SECURITY.md).
 
 ## Development
 
