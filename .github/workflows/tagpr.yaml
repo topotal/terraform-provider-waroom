@@ -6,6 +6,9 @@ name: tagpr
 on:
   push:
     branches: [ main ]
+  # tagpr reads the release PR's labels (tagpr:minor / tagpr:major) only when it runs.
+  # Run this on main after labeling to update the release PR without waiting for a push.
+  workflow_dispatch:
 
 permissions: {}
 
