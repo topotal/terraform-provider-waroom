@@ -1,0 +1,16 @@
+# Reviews are open to everyone in the org; release-related files need a releaser.
+# The last matching pattern wins.
+*                                  @topotal/all
+
+# Only the tagpr release PR changes VERSION, so release PRs need a releaser.
+/VERSION                           @topotal/waroom-ecosystem-releasers
+
+# Release pipeline: tagging, GoReleaser, and the Terraform Registry manifest.
+/.tagpr                            @topotal/waroom-ecosystem-releasers
+/.goreleaser.yml                   @topotal/waroom-ecosystem-releasers
+/.github/release.yml               @topotal/waroom-ecosystem-releasers
+/.github/workflows/tagpr.yaml      @topotal/waroom-ecosystem-releasers
+/terraform-registry-manifest.json  @topotal/waroom-ecosystem-releasers
+
+# Ownership changes themselves.
+/.github/CODEOWNERS                @topotal/waroom-ecosystem-releasers
