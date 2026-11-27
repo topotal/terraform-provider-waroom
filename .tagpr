@@ -7,7 +7,8 @@
 #
 #   tagpr.versionFile
 #       Versioning file containing the semantic version needed to be updated at release.
-#       "-" means tag-only mode: the version lives only in git tags.
+#       VERSION only marks release PRs for CODEOWNERS; the binary still gets its version
+#       from GoReleaser via -ldflags.
 #
 #   tagpr.vPrefix
 #       Flag whether or not v-prefix is added to semver when git tagging. The Terraform Registry
@@ -21,7 +22,7 @@
 # and must not run repository code.
 [tagpr]
 	releaseBranch = main
-	versionFile = -
+	versionFile = VERSION
 	vPrefix = true
 	changelog = true
 	release = draft
