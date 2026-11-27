@@ -1,7 +1,8 @@
 terraform {
   required_providers {
     waroom = {
-      source = "topotal/waroom"
+      source  = "topotal/waroom"
+      version = "~> 0.1.0"
     }
   }
 }
