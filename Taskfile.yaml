@@ -47,7 +47,8 @@ tasks:
   gen-docs:
     desc: "Generate documentation for resources and data sources"
     cmds:
-      - cd tools; go generate ./...
+      - terraform fmt -recursive examples/
+      - go tool tfplugindocs generate --provider-name waroom
 
   build:
     desc: "Build the project"
