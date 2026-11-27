@@ -110,7 +110,7 @@ func (p *WaroomProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	client, err := waroom.NewClient(ctx,
 		waroom.WithBaseURL(endpoint),
 		waroom.WithAPIKey(apiKey),
-		waroom.WithUserAgent("waroom-client-go 0.0.1/terraform-provider-waroom "+p.version),
+		waroom.WithUserAgent(userAgent(p.version)),
 		// waroom.WithRequestDump(),
 		// waroom.WithResponseDump(),
 	)
