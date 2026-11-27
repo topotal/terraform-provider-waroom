@@ -45,7 +45,7 @@ func TestServiceRunbookRuleNamespaceValidators(t *testing.T) {
 
 	validate := func(raw string) diag.Diagnostics {
 		var diags diag.Diagnostics
-		for _, v := range serviceRunbookRuleNamespaceValidators() {
+		for _, v := range runbookNamespaceWithSlashValidators() {
 			var resp validator.StringResponse
 			v.ValidateString(context.Background(), validator.StringRequest{ConfigValue: types.StringValue(raw)}, &resp)
 			diags.Append(resp.Diagnostics...)
@@ -66,7 +66,7 @@ func TestServiceRunbookRuleNamespaceValidators(t *testing.T) {
 }
 
 // The service is one created by acceptance tests ("tf-acc-*"), since the Waroom API cannot delete a service.
-// The runbooks are created through the API, as there is no waroom_runbook resource.
+// The runbooks are created with waroom_runbook in the same config.
 func TestAccServiceRunbookRuleResource(t *testing.T) {
 	if os.Getenv(resource.EnvTfAcc) == "" {
 		t.Skipf("Acceptance tests skipped unless env '%s' set", resource.EnvTfAcc)
@@ -77,8 +77,6 @@ func TestAccServiceRunbookRuleResource(t *testing.T) {
 	prefix := "/" + acctest.RandomWithPrefix("tf-acc")
 	namespaceA := prefix + "/a"
 	namespaceB := prefix + "/b"
-	testAccCreateRunbook(t, namespaceA, "# A\n")
-	testAccCreateRunbook(t, namespaceB, "# B\n")
 
 	const name = "waroom_service_runbook_rule.test"
 
@@ -90,22 +88,22 @@ func TestAccServiceRunbookRuleResource(t *testing.T) {
 			// Values the API rejects are caught at plan time.
 			// These steps come first because the post-test destroy uses the last step's config.
 			{
-				Config:      testAccServiceRunbookRuleResourceConfig(serviceName, "db", "title", -1, namespaceA),
+				Config:      testAccServiceRunbookRuleResourceConfig(serviceName, prefix, "db", "title", -1, "waroom_runbook.a.namespace"),
 				ExpectError: regexp.MustCompile(`must be at least 0`),
 			},
 			{
-				Config:      testAccServiceRunbookRuleResourceConfig(serviceName, "db", "title", 10, namespaceA[1:]),
+				Config:      testAccServiceRunbookRuleResourceConfig(serviceName, prefix, "db", "title", 10, fmt.Sprintf("%q", namespaceA[1:])),
 				ExpectError: regexp.MustCompile(`must start with`),
 			},
 			// The API rejects an invalid regular expression. The client does not surface the 422 message yet
 			// (topotal/waroom-client-go#196), so only the status is checked.
 			{
-				Config:      testAccServiceRunbookRuleResourceConfig(serviceName, "(", "title", 10, namespaceA),
+				Config:      testAccServiceRunbookRuleResourceConfig(serviceName, prefix, "(", "title", 10, "waroom_runbook.a.namespace"),
 				ExpectError: regexp.MustCompile(`422`),
 			},
 			// Create and Read
 			{
-				Config: testAccServiceRunbookRuleResourceConfig(serviceName, "database.*down", "title", 10, namespaceA),
+				Config: testAccServiceRunbookRuleResourceConfig(serviceName, prefix, "database.*down", "title", 10, "waroom_runbook.a.namespace"),
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectKnownValue(name, tfjsonpath.New("id"), knownvalue.NotNull()),
 					statecheck.ExpectKnownValue(name, tfjsonpath.New("uuid"), knownvalue.NotNull()),
@@ -146,7 +144,7 @@ func TestAccServiceRunbookRuleResource(t *testing.T) {
 			},
 			// Update every attribute in place
 			{
-				Config: testAccServiceRunbookRuleResourceConfig(serviceName, "(?i)latency", "description", 20, namespaceB),
+				Config: testAccServiceRunbookRuleResourceConfig(serviceName, prefix, "(?i)latency", "description", 20, "waroom_runbook.b.namespace"),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction(name, plancheck.ResourceActionUpdate),
@@ -164,7 +162,7 @@ func TestAccServiceRunbookRuleResource(t *testing.T) {
 				PreConfig: func() {
 					testAccDeleteServiceRunbookRules(t, serviceName, namespaceB)
 				},
-				Config: testAccServiceRunbookRuleResourceConfig(serviceName, "(?i)latency", "description", 20, namespaceB),
+				Config: testAccServiceRunbookRuleResourceConfig(serviceName, prefix, "(?i)latency", "description", 20, "waroom_runbook.b.namespace"),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectResourceAction(name, plancheck.ResourceActionCreate),
@@ -228,14 +226,26 @@ func testAccCheckServiceRunbookRuleDestroy(t *testing.T) resource.TestCheckFunc 
 	}
 }
 
-func testAccServiceRunbookRuleResourceConfig(serviceName, pattern, target string, priority int, runbookNamespace string) string {
+// testAccServiceRunbookRuleResourceConfig creates the runbooks <runbookPrefix>/a and <runbookPrefix>/b,
+// and a rule whose runbook_namespace is the HCL expression runbookNamespaceExpr (e.g. waroom_runbook.a.namespace).
+func testAccServiceRunbookRuleResourceConfig(serviceName, runbookPrefix, pattern, target string, priority int, runbookNamespaceExpr string) string {
 	return fmt.Sprintf(`
-resource "waroom_service_runbook_rule" "test" {
-  service_name      = %q
-  pattern           = %q
-  target            = %q
-  priority          = %d
-  runbook_namespace = %q
+resource "waroom_runbook" "a" {
+  namespace = "%[1]s/a"
+  blob      = "# A\n"
 }
-`, serviceName, pattern, target, priority, runbookNamespace)
+
+resource "waroom_runbook" "b" {
+  namespace = "%[1]s/b"
+  blob      = "# B\n"
+}
+
+resource "waroom_service_runbook_rule" "test" {
+  service_name      = %[2]q
+  pattern           = %[3]q
+  target            = %[4]q
+  priority          = %[5]d
+  runbook_namespace = %[6]s
+}
+`, runbookPrefix, serviceName, pattern, target, priority, runbookNamespaceExpr)
 }

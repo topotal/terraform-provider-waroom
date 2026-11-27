@@ -2,10 +2,7 @@ package provider
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
-	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -19,9 +16,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
-	"github.com/topotal/waroom-client-go/waroom"
-
-	"github.com/topotal/terraform-provider-waroom/internal/utils"
 )
 
 func TestRunbookNamespaceParam(t *testing.T) {
@@ -83,77 +77,52 @@ func TestRunbookNamespaceValidators(t *testing.T) {
 }
 
 func TestAccRunbookDataSource(t *testing.T) {
-	if os.Getenv(resource.EnvTfAcc) == "" {
-		t.Skipf("Acceptance tests skipped unless env '%s' set", resource.EnvTfAcc)
-	}
-	testAccPreCheck(t)
-
-	// There is no waroom_runbook resource, so the runbook is created through the API.
 	namespace := "/" + acctest.RandomWithPrefix("tf-acc") + "/recovery"
 	blob := "# Recovery\n\n1. Restart the server.\n"
-	testAccCreateRunbook(t, namespace, blob)
+
+	const name = "data.waroom_runbook.test"
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccRunbookDataSourceConfig(namespace),
+				Config: testAccRunbookDataSourceConfig(namespace, blob, "waroom_runbook.test.namespace"),
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue("data.waroom_runbook.test", tfjsonpath.New("id"), knownvalue.StringExact(namespace)),
-					statecheck.ExpectKnownValue("data.waroom_runbook.test", tfjsonpath.New("namespace"), knownvalue.StringExact(namespace)),
-					statecheck.ExpectKnownValue("data.waroom_runbook.test", tfjsonpath.New("blob"), knownvalue.StringExact(blob)),
-					statecheck.ExpectKnownValue("data.waroom_runbook.test", tfjsonpath.New("created_at"), knownvalue.NotNull()),
-					statecheck.ExpectKnownValue("data.waroom_runbook.test", tfjsonpath.New("updated_at"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("id"), knownvalue.StringExact(namespace)),
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("namespace"), knownvalue.StringExact(namespace)),
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("blob"), knownvalue.StringExact(blob)),
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("created_at"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("updated_at"), knownvalue.NotNull()),
 				},
 			},
 			{
 				// The leading slash is optional; id stays the canonical namespace.
-				Config: testAccRunbookDataSourceConfig(namespace[1:]),
+				Config: testAccRunbookDataSourceConfig(namespace, blob, `trimprefix(waroom_runbook.test.namespace, "/")`),
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue("data.waroom_runbook.test", tfjsonpath.New("id"), knownvalue.StringExact(namespace)),
-					statecheck.ExpectKnownValue("data.waroom_runbook.test", tfjsonpath.New("namespace"), knownvalue.StringExact(namespace[1:])),
-					statecheck.ExpectKnownValue("data.waroom_runbook.test", tfjsonpath.New("blob"), knownvalue.StringExact(blob)),
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("id"), knownvalue.StringExact(namespace)),
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("namespace"), knownvalue.StringExact(namespace[1:])),
+					statecheck.ExpectKnownValue(name, tfjsonpath.New("blob"), knownvalue.StringExact(blob)),
 				},
 			},
 			{
-				Config:      testAccRunbookDataSourceConfig("/" + acctest.RandomWithPrefix("tf-acc-missing")),
+				Config:      testAccRunbookDataSourceConfig(namespace, blob, fmt.Sprintf("%q", "/"+acctest.RandomWithPrefix("tf-acc-missing"))),
 				ExpectError: regexp.MustCompile(`Runbook Not Found`),
 			},
 		},
 	})
 }
 
-// testAccCreateRunbook creates a runbook through the API and deletes it when the test ends.
-func testAccCreateRunbook(t *testing.T, namespace, blob string) {
-	t.Helper()
-	ctx := context.Background()
-
-	client, err := waroom.NewClient(ctx,
-		waroom.WithBaseURL(os.Getenv(utils.WaroomAPIEndPointEnvName)),
-		waroom.WithAPIKey(os.Getenv(utils.WaroomAPIKeyEnvName)),
-	)
-	if err != nil {
-		t.Fatalf("creating Waroom client: %s", err)
-	}
-
-	if _, err := client.Runbooks.Create(ctx, waroom.CreateRunbookReq{Namespace: namespace, Blob: blob}); err != nil {
-		t.Fatalf("creating runbook %q: %s", namespace, err)
-	}
-
-	t.Cleanup(func() {
-		err := client.Runbooks.Delete(context.Background(), waroom.DeleteRunbookParams{Namespace: runbookNamespaceParam(namespace)})
-		var apiErr *waroom.APIError
-		if err != nil && (!errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusNotFound) {
-			t.Errorf("deleting runbook %q: %s", namespace, err)
-		}
-	})
-}
-
-func testAccRunbookDataSourceConfig(namespace string) string {
+// testAccRunbookDataSourceConfig creates a runbook and looks up the namespace given by the HCL expression namespaceExpr.
+func testAccRunbookDataSourceConfig(namespace, blob, namespaceExpr string) string {
 	return fmt.Sprintf(`
-data "waroom_runbook" "test" {
-  namespace = %[1]q
+resource "waroom_runbook" "test" {
+  namespace = %q
+  blob      = %q
 }
-`, namespace)
+
+data "waroom_runbook" "test" {
+  namespace = %s
+}
+`, namespace, blob, namespaceExpr)
 }
